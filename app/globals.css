@@ -340,6 +340,10 @@ body {
   font-size: 0.83rem;
 }
 
+.fines-row > div {
+  min-width: 0;
+}
+
 .fines-row:last-child {
   border-bottom: none;
 }

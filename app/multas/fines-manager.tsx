@@ -153,6 +153,7 @@ export default function FinesManager({ canEdit }: { canEdit: boolean }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<"" | FineStatus>("");
+  const [yearFilter, setYearFilter] = useState("");
   const [search, setSearch] = useState("");
 
   const [showForm, setShowForm] = useState(false);
@@ -206,21 +207,32 @@ export default function FinesManager({ canEdit }: { canEdit: boolean }) {
     }, {});
   }, [fines]);
 
+  const availableYears = useMemo(() => {
+    const years = new Set<string>();
+    for (const f of fines) {
+      if (f.infraction_date) years.add(f.infraction_date.slice(0, 4));
+    }
+    return Array.from(years).sort((a, b) => b.localeCompare(a));
+  }, [fines]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return fines.filter((f) => {
-      if (statusFilter && f.status !== statusFilter) return false;
-      if (!q) return true;
-      return (
-        f.vehicle_plate?.toLowerCase().includes(q) ||
-        f.plate_raw?.toLowerCase().includes(q) ||
-        f.infraction_description?.toLowerCase().includes(q) ||
-        f.auto_number?.toLowerCase().includes(q) ||
-        f.driver_name?.toLowerCase().includes(q) ||
-        f.department?.toLowerCase().includes(q)
-      );
-    });
-  }, [fines, statusFilter, search]);
+    return fines
+      .filter((f) => {
+        if (statusFilter && f.status !== statusFilter) return false;
+        if (yearFilter && f.infraction_date?.slice(0, 4) !== yearFilter) return false;
+        if (!q) return true;
+        return (
+          f.vehicle_plate?.toLowerCase().includes(q) ||
+          f.plate_raw?.toLowerCase().includes(q) ||
+          f.infraction_description?.toLowerCase().includes(q) ||
+          f.auto_number?.toLowerCase().includes(q) ||
+          f.driver_name?.toLowerCase().includes(q) ||
+          f.department?.toLowerCase().includes(q)
+        );
+      })
+      .sort((a, b) => (b.infraction_date ?? "").localeCompare(a.infraction_date ?? ""));
+  }, [fines, statusFilter, yearFilter, search]);
 
   const summary = useMemo(() => {
     const total = fines.length;
@@ -452,13 +464,27 @@ export default function FinesManager({ canEdit }: { canEdit: boolean }) {
       </div>
 
       <div className="flex flex-wrap items-center gap-3 justify-between">
-        <input
-          type="text"
-          placeholder="Buscar por placa, auto, condutor, setor..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="input w-80"
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="text"
+            placeholder="Buscar por placa, auto, condutor, setor..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="input w-80"
+          />
+          <select
+            className="input w-auto"
+            value={yearFilter}
+            onChange={(e) => setYearFilter(e.target.value)}
+          >
+            <option value="">Todos os anos</option>
+            {availableYears.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+        </div>
         {canEdit && (
           <div className="flex items-center gap-2">
             <button onClick={() => setShowImport(true)} className="btn btn-secondary">
@@ -502,22 +528,29 @@ export default function FinesManager({ canEdit }: { canEdit: boolean }) {
           return (
             <div key={f.id} className="fines-row">
               <div>
-                <div className="font-medium">{f.auto_number ?? "-"}</div>
-                <div className="muted mono">RENAINF {f.renainf_number ?? "-"}</div>
-                <div className="muted">
+                <div className="font-medium truncate" title={f.auto_number ?? undefined}>
+                  {f.auto_number ?? "-"}
+                </div>
+                <div className="muted mono truncate">RENAINF {f.renainf_number ?? "-"}</div>
+                <div className="muted truncate">
                   {f.fine_type === "segunda" ? "2a multa - vinculada" : "Autuacao original"}
                 </div>
               </div>
               <div>
                 <span className="plate-chip">{f.vehicle_plate ?? f.plate_raw ?? "-"}</span>
-                <div className={f.vehicle_id ? "fleet-own" : "fleet-rent"}>
+                <div
+                  className={`truncate ${f.vehicle_id ? "fleet-own" : "fleet-rent"}`}
+                  title={f.fleet_company ?? undefined}
+                >
                   {f.fleet_company ?? (f.vehicle_id ? "Frota propria" : "Terceiro / locadora")}
                 </div>
-                <div className="muted">{f.department ?? "-"}</div>
+                <div className="muted truncate" title={f.department ?? undefined}>
+                  {f.department ?? "-"}
+                </div>
               </div>
               <div>
-                <div className="dim">{formatDate(f.infraction_date)}</div>
-                <div className="muted">
+                <div className="dim truncate">{formatDate(f.infraction_date)}</div>
+                <div className="muted truncate">
                   {f.infraction_code ?? "-"}
                   {f.points !== null ? ` - ${f.points} ponto(s)` : ""}
                 </div>
@@ -529,8 +562,15 @@ export default function FinesManager({ canEdit }: { canEdit: boolean }) {
                 </div>
               </div>
               <div>
-                <div className="font-medium">{f.driver_name ?? "-"}</div>
-                <div className="muted">{f.identification_method ?? (f.driver_name ? "-" : "Nao identificado")}</div>
+                <div className="font-medium truncate" title={f.driver_name ?? undefined}>
+                  {f.driver_name ?? "-"}
+                </div>
+                <div
+                  className="muted truncate"
+                  title={f.identification_method ?? undefined}
+                >
+                  {f.identification_method ?? (f.driver_name ? "-" : "Nao identificado")}
+                </div>
               </div>
               <div>
                 <div className="font-medium">{formatCents(f.amount_cents)}</div>
