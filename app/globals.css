@@ -37,42 +37,12 @@
   --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Consolas, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --ink: #f2f1ea;
-    --paper: #14171c;
-    --surface: #1b1f26;
-    --surface-2: #232830;
-    --surface-3: #2b313a;
-    --line: #333a44;
-    --line-strong: #454d59;
-    --text: #e7e5db;
-    --text-dim: #9a9d93;
-    --text-faint: #6b6f66;
-
-    --accent: #5cb875;
-    --accent-hover: #74c98a;
-    --accent-ink: #0c1f10;
-    --accent-bg: #1c3322;
-
-    --brand-orange: #e8a35f;
-    --brand-orange-bg: #3a2a15;
-
-    --ok: #7bc98a;
-    --ok-bg: #1f2e22;
-    --warn: #e3c078;
-    --warn-bg: #332a15;
-    --crit: #e8897c;
-    --crit-bg: #35201c;
-    --info: #7fb0dd;
-    --info-bg: #1c2b38;
-    --neutral: #a3a69a;
-    --neutral-bg: #262a24;
-
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.3);
-  }
-}
+/*
+ * O SIGF usa um unico tema visual (Verde Institucional) por escolha do
+ * cliente, independente do modo claro/escuro do sistema operacional do
+ * usuario. Por isso nao ha um bloco @media (prefers-color-scheme: dark)
+ * aqui: as variaveis do :root acima sao usadas sempre.
+ */
 
 * {
   border-color: var(--line);
@@ -82,6 +52,7 @@ html,
 body {
   background: var(--paper);
   color: var(--text);
+  color-scheme: light;
 }
 
 body {
