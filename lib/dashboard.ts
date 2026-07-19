@@ -20,7 +20,7 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
       category: VehicleCategory;
       n: number;
     }>(),
-    env.DB.prepare(`SELECT status, COUNT(*) as n FROM vehicles GROUP BY status`).all<{
+    env.DB.prepare(`SELECT status, COUNT(*) as n FROM vehicles WHERE category = 'veiculo' GROUP BY status`).all<{
       status: VehicleStatus;
       n: number;
     }>(),
@@ -60,7 +60,7 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
     vehiclesByStatus[row.status as VehicleStatus] = row.n;
   }
 
-  const totalVehicles = Object.values(vehiclesByCategory).reduce((a, b) => a + b, 0);
+  const totalVehicles = vehiclesByCategory.veiculo;
 
   return {
     totalVehicles,

@@ -28,7 +28,7 @@ export default async function DashboardPage() {
               <StatCard
                 label="Total na frota"
                 value={String(summary.totalVehicles)}
-                hint={`${summary.vehiclesByCategory.veiculo} veiculos · ${summary.vehiclesByCategory.equipamento} equipamentos · ${summary.vehiclesByCategory.particular} particulares`}
+                hint={`${summary.vehiclesByCategory.equipamento} equipamentos e ${summary.vehiclesByCategory.particular} particulares fora da frota`}
               />
               <StatCard label="Disponivel" value={String(summary.vehiclesByStatus.disponivel)} tone="accent" />
               <StatCard
