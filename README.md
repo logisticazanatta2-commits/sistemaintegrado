@@ -115,6 +115,23 @@ npm run db:migrate:remote   # se houve mudanca de schema
 npm run deploy
 ```
 
+### Atencao ao rodar `npm run deploy` no Windows
+
+O build do OpenNext (`opennextjs-cloudflare build`, chamado por `npm run deploy`)
+tem um bug conhecido quando roda no Windows nativo (cmd, PowerShell ou Git
+Bash sem WSL): paginas ficam com erro `TypeError:
+components.ComponentMod.handler is not a function` em producao, mesmo com o
+build "terminando sem erro" no terminal.
+
+Duas opcoes:
+
+- **Preferida:** rode `npm run deploy` de dentro do **WSL** (Windows
+  Subsystem for Linux), nao no cmd/PowerShell/Git Bash direto.
+- **Alternativa:** builde em qualquer ambiente Linux/Mac (`npx
+  opennextjs-cloudflare build`), copie a pasta `.open-next` gerada para o
+  Windows substituindo a existente, e rode so `npx wrangler deploy` (sem
+  rebuildar) no Windows.
+
 ## Estrutura
 
 - `app/veiculos` — UI de cadastro (lista, criar, editar, excluir, filtro,

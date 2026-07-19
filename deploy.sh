@@ -102,6 +102,13 @@ if [ -f "$SEED_FILE" ]; then
 fi
 
 step "Build + deploy"
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*)
+    echo "Aviso: build do OpenNext no Windows nativo tem bug conhecido"
+    echo "(paginas com erro 'ComponentMod.handler is not a function' em producao)."
+    echo "Se isso acontecer, rode este script de dentro do WSL da proxima vez."
+    ;;
+esac
 npm run deploy
 
 step "Pronto"
