@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/badge";
+import ImportPdfButton from "./import-pdf-button";
 import {
   WORK_ORDER_STATUS_TONE,
   type MaintenanceType,
@@ -332,9 +333,12 @@ export default function WorkOrdersManager({ canEdit }: { canEdit: boolean }) {
           </select>
         </div>
         {canEdit && (
-          <button onClick={openCreateForm} className="btn btn-primary">
-            + Nova OS
-          </button>
+          <div className="flex items-center gap-2">
+            <ImportPdfButton />
+            <button onClick={openCreateForm} className="btn btn-primary">
+              + Nova OS
+            </button>
+          </div>
         )}
       </div>
 
