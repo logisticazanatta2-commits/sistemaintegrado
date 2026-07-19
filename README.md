@@ -51,6 +51,14 @@ O `next.config.ts` chama `initOpenNextCloudflareForDev()`, entao os bindings
    npm run db:migrate:remote
    ```
 
+4.1. (Opcional) Importar a base real de veiculos a partir de uma planilha
+   exportada do SIGF (mesmo formato de `db/seed/2026-07-18-import-zanatta-vdh.sql`):
+
+   ```bash
+   python3 scripts/import-vehicles-xlsx.py caminho/para/planilha.xlsx > db/seed/import.sql
+   npx wrangler d1 execute sigf-db --remote --file=db/seed/import.sql
+   ```
+
 5. Deploy:
 
    ```bash

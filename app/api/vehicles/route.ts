@@ -52,8 +52,8 @@ export async function POST(request: NextRequest) {
         category, plate, registered_plate, model, vehicle_type, nickname,
         responsible, cost_center, status, asset_code, renavam, chassis,
         manufacture_year, model_year, owner_name, odometer,
-        odometer_reference_date, notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        odometer_reference_date, uf_base, fleet_class, notes
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       RETURNING *`
     )
       .bind(
@@ -74,6 +74,8 @@ export async function POST(request: NextRequest) {
         input.owner_name,
         input.odometer,
         input.odometer_reference_date,
+        input.uf_base,
+        input.fleet_class,
         input.notes
       )
       .first<Vehicle>();

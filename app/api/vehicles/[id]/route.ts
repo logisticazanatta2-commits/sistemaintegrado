@@ -33,7 +33,8 @@ export async function PATCH(
         category = ?, plate = ?, registered_plate = ?, model = ?, vehicle_type = ?,
         nickname = ?, responsible = ?, cost_center = ?, status = ?, asset_code = ?,
         renavam = ?, chassis = ?, manufacture_year = ?, model_year = ?, owner_name = ?,
-        odometer = ?, odometer_reference_date = ?, notes = ?, updated_at = datetime('now')
+        odometer = ?, odometer_reference_date = ?, uf_base = ?, fleet_class = ?,
+        notes = ?, updated_at = datetime('now')
       WHERE id = ?
       RETURNING *`
     )
@@ -55,6 +56,8 @@ export async function PATCH(
         input.owner_name,
         input.odometer,
         input.odometer_reference_date,
+        input.uf_base,
+        input.fleet_class,
         input.notes,
         vehicleId
       )

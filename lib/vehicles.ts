@@ -25,6 +25,8 @@ export interface Vehicle {
   owner_name: string | null;
   odometer: number;
   odometer_reference_date: string | null;
+  uf_base: string | null;
+  fleet_class: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -70,6 +72,8 @@ export interface VehicleInput {
   owner_name?: string | null;
   odometer?: number;
   odometer_reference_date?: string | null;
+  uf_base?: string | null;
+  fleet_class?: string | null;
   notes?: string | null;
 }
 
@@ -146,6 +150,8 @@ export function parseVehicleInput(body: unknown): VehicleInput {
     owner_name: str("owner_name"),
     odometer,
     odometer_reference_date: str("odometer_reference_date"),
+    uf_base: str("uf_base"),
+    fleet_class: str("fleet_class"),
     notes: str("notes"),
   };
 }

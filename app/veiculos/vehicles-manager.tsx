@@ -34,6 +34,8 @@ const EMPTY_FORM = {
   model_year: "",
   owner_name: "",
   odometer: "",
+  uf_base: "",
+  fleet_class: "",
   notes: "",
 };
 
@@ -108,6 +110,8 @@ export default function VehiclesManager() {
       model_year: v.model_year?.toString() ?? "",
       owner_name: v.owner_name ?? "",
       odometer: v.odometer.toString(),
+      uf_base: v.uf_base ?? "",
+      fleet_class: v.fleet_class ?? "",
       notes: v.notes ?? "",
     });
     setFormError(null);
@@ -209,6 +213,7 @@ export default function VehiclesManager() {
               <th className="px-3 py-2">Modelo</th>
               <th className="px-3 py-2">Categoria</th>
               <th className="px-3 py-2">Responsavel</th>
+              <th className="px-3 py-2">UF/Base</th>
               <th className="px-3 py-2">Hodometro</th>
               <th className="px-3 py-2">Status</th>
               <th className="px-3 py-2"></th>
@@ -217,14 +222,14 @@ export default function VehiclesManager() {
           <tbody className="divide-y divide-slate-100">
             {loading && (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-slate-400">
+                <td colSpan={8} className="px-3 py-6 text-center text-slate-400">
                   Carregando...
                 </td>
               </tr>
             )}
             {!loading && vehicles.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-slate-400">
+                <td colSpan={8} className="px-3 py-6 text-center text-slate-400">
                   Nenhum veiculo cadastrado.
                 </td>
               </tr>
@@ -238,6 +243,7 @@ export default function VehiclesManager() {
                 </td>
                 <td className="px-3 py-2">{CATEGORY_LABEL[v.category]}</td>
                 <td className="px-3 py-2">{v.responsible ?? "-"}</td>
+                <td className="px-3 py-2">{v.uf_base ?? "-"}</td>
                 <td className="px-3 py-2">{v.odometer.toLocaleString("pt-BR")} km</td>
                 <td className="px-3 py-2">
                   <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs">
@@ -353,6 +359,21 @@ export default function VehiclesManager() {
                   className="input"
                   value={form.cost_center}
                   onChange={(e) => setForm({ ...form, cost_center: e.target.value })}
+                />
+              </Field>
+              <Field label="UF / Base">
+                <input
+                  className="input"
+                  value={form.uf_base}
+                  onChange={(e) => setForm({ ...form, uf_base: e.target.value })}
+                />
+              </Field>
+              <Field label="Classe de frota">
+                <input
+                  className="input"
+                  value={form.fleet_class}
+                  onChange={(e) => setForm({ ...form, fleet_class: e.target.value })}
+                  placeholder="Ex: VEICULO LEVE, PTA, BOBCAT"
                 />
               </Field>
               <Field label="Hodometro (km)">
