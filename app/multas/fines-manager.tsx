@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { StatCard } from "@/components/stat-card";
 import {
   DEPARTMENTS,
@@ -155,6 +155,7 @@ export default function FinesManager({ canEdit }: { canEdit: boolean }) {
   const [statusFilter, setStatusFilter] = useState<"" | FineStatus>("");
   const [yearFilter, setYearFilter] = useState("");
   const [search, setSearch] = useState("");
+  const [expandedId, setExpandedId] = useState<number | null>(null);
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -526,7 +527,8 @@ export default function FinesManager({ canEdit }: { canEdit: boolean }) {
         {filtered.map((f) => {
           const overdue = f.status === "pagto_data_vencida";
           return (
-            <div key={f.id} className="fines-row">
+            <Fragment key={f.id}>
+            <div className="fines-row">
               <div>
                 <div className="font-medium truncate" title={f.auto_number ?? undefined}>
                   {f.auto_number ?? "-"}
@@ -601,18 +603,30 @@ export default function FinesManager({ canEdit }: { canEdit: boolean }) {
                     </span>
                   </span>
                 </button>
-                {canEdit && (
-                  <div className="flex gap-1 mt-1">
-                    <button onClick={() => openEditForm(f)} className="btn btn-ghost text-xs">
-                      Editar dados
-                    </button>
-                    <button onClick={() => handleDelete(f)} className="btn btn-danger-ghost text-xs">
-                      Excluir
-                    </button>
-                  </div>
-                )}
+                <div className="flex gap-1 mt-1">
+                  <button
+                    onClick={() => setExpandedId(expandedId === f.id ? null : f.id)}
+                    className="btn btn-ghost text-xs"
+                  >
+                    {expandedId === f.id ? "Ocultar detalhes" : "Ver detalhes"}
+                  </button>
+                  {canEdit && (
+                    <>
+                      <button onClick={() => openEditForm(f)} className="btn btn-ghost text-xs">
+                        Editar dados
+                      </button>
+                      <button onClick={() => handleDelete(f)} className="btn btn-danger-ghost text-xs">
+                        Excluir
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
+            {expandedId === f.id && (
+              <FineDetailPanel fine={f} onEdit={() => openEditForm(f)} onFlow={() => openFlow(f)} canEdit={canEdit} />
+            )}
+            </Fragment>
           );
         })}
       </div>
@@ -1118,6 +1132,124 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       {label}
       {children}
     </label>
+  );
+}
+
+function DetailField({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div>
+      <div className="detail-field-label">{label}</div>
+      <div className="detail-field-value">{value ?? "-"}</div>
+    </div>
+  );
+}
+
+function FineDetailPanel({
+  fine,
+  onEdit,
+  onFlow,
+  canEdit,
+}: {
+  fine: Fine;
+  onEdit: () => void;
+  onFlow: () => void;
+  canEdit: boolean;
+}) {
+  return (
+    <div className="fines-detail-panel">
+      <div className="fines-detail-grid">
+        <FormSection label="Identificacao">
+          <div className="detail-grid">
+            <DetailField label="Ano" value={fine.year} />
+            <DetailField label="Setor responsavel" value={fine.department} />
+            <DetailField label="Frota / propriedade" value={fine.fleet_company} />
+            <DetailField label="Tipo" value={fine.fine_type === "segunda" ? "2a multa" : "1a multa"} />
+            <DetailField label="Cadastrada em" value={formatDate(fine.registered_at)} />
+            <DetailField label="Origem" value={fine.source} />
+          </div>
+        </FormSection>
+
+        <FormSection label="Veiculo">
+          <div className="detail-grid">
+            <DetailField label="Placa" value={fine.vehicle_plate ?? fine.plate_raw} />
+            <DetailField label="Modelo" value={fine.vehicle_model} />
+          </div>
+        </FormSection>
+
+        <FormSection label="Infracao">
+          <div className="detail-grid">
+            <DetailField label="No do auto de infracao" value={fine.auto_number} />
+            <DetailField label="Numero Renainf" value={fine.renainf_number} />
+            <DetailField label="Renainf multa original" value={fine.renainf_original} />
+            <DetailField label="No de pontos" value={fine.points} />
+            <DetailField label="Data da infracao" value={formatDate(fine.infraction_date)} />
+            <DetailField label="Local da infracao" value={fine.infraction_location} />
+            <DetailField label="Codigo da infracao" value={fine.infraction_code} />
+            <DetailField label="Codigo do orgao" value={fine.issuing_body_code} />
+            <DetailField label="Orgao autuador" value={fine.issuing_body} />
+          </div>
+          <DetailField label="Descricao da infracao" value={fine.infraction_description} />
+        </FormSection>
+
+        <FormSection label="Indicacao do condutor">
+          <div className="detail-grid">
+            <DetailField label="Real infrator / condutor" value={fine.driver_name} />
+            <DetailField label="Data limite p/ indicacao" value={formatDate(fine.indication_deadline)} />
+            <DetailField label="Data envio formulario" value={formatDate(fine.form_sent_date)} />
+            <DetailField label="Responsavel por receber formulario" value={fine.form_received_by} />
+            <DetailField label="Data protocolo / postagem" value={formatDate(fine.protocol_date)} />
+            <DetailField label="Forma de identificacao" value={fine.identification_method} />
+          </div>
+        </FormSection>
+
+        <FormSection label="Financeiro">
+          <div className="detail-grid">
+            <DetailField label="Valor da multa" value={formatCents(fine.amount_cents)} />
+            <DetailField label="Desconto" value={formatCents(fine.discount_cents)} />
+            <DetailField label="Valor real pago" value={formatCents(fine.amount_paid_cents)} />
+            <DetailField label="Data de vencimento" value={formatDate(fine.due_date)} />
+            <DetailField label="Boleto / situacao financeira" value={fine.invoice_status} />
+            <DetailField label="Numero de lancamento no CIGAM" value={fine.cigam_launch_number} />
+          </div>
+        </FormSection>
+
+        <FormSection label="Fluxo interno">
+          <div className="detail-grid">
+            <DetailField label="Responsavel" value={fine.flow_responsible_name} />
+            <DetailField label="E-mail do responsavel" value={fine.flow_responsible_email} />
+            <DetailField label="Situacao do responsavel" value={FLOW_STAGE_STATUS_LABEL[fine.flow_responsible_status]} />
+            <DetailField label="Situacao do departamento" value={FLOW_STAGE_STATUS_LABEL[fine.flow_department_status]} />
+            <DetailField label="Situacao no RH" value={FLOW_STAGE_STATUS_LABEL[fine.flow_rh_status]} />
+            <DetailField label="Forma do desconto" value={fine.discount_method} />
+            <DetailField label="Quantidade de parcelas" value={fine.discount_installments} />
+            <DetailField label="Data de efetivacao" value={formatDate(fine.discount_completion_date)} />
+            <DetailField label="Situacao financeira" value={FLOW_STAGE_STATUS_LABEL[fine.flow_financial_status]} />
+          </div>
+          {fine.notes && (
+            <DetailField label="Observacoes internas" value={fine.notes} />
+          )}
+        </FormSection>
+
+        {fine.file_name && (
+          <FormSection label="Anexo">
+            <a href={`/api/fines/${fine.id}/arquivo`} target="_blank" rel="noreferrer" className="btn btn-secondary">
+              Ver {fine.file_name}
+            </a>
+          </FormSection>
+        )}
+      </div>
+
+      <div className="flex justify-end gap-2 pt-3" style={{ borderTop: "1px solid var(--line)" }}>
+        <button type="button" onClick={onFlow} className="btn btn-secondary">
+          Abrir fluxo interno
+        </button>
+        {canEdit && (
+          <button type="button" onClick={onEdit} className="btn btn-primary">
+            Editar dados oficiais
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 
