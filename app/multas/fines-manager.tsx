@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Badge } from "@/components/badge";
 import { StatCard } from "@/components/stat-card";
 import {
   DEPARTMENTS,
@@ -9,8 +8,11 @@ import {
   FINE_STATUS_LABEL,
   FINE_STATUS_TONE,
   FLEET_COMPANIES,
+  FLOW_STAGE_STATUSES,
+  FLOW_STAGE_STATUS_LABEL,
   type Fine,
   type FineStatus,
+  type FlowStageStatus,
 } from "@/lib/fines";
 import type { Vehicle } from "@/lib/vehicles";
 
@@ -68,6 +70,83 @@ const EMPTY_FORM = {
 
 type FormState = typeof EMPTY_FORM;
 
+function fineToForm(f: Fine): FormState {
+  return {
+    vehicle_id: f.vehicle_id ? String(f.vehicle_id) : "",
+    plate_raw: f.plate_raw ?? "",
+    year: f.year?.toString() ?? "",
+    department: f.department ?? "",
+    fleet_company: f.fleet_company ?? "",
+    notes: f.notes ?? "",
+    fine_type: f.fine_type,
+    parent_fine_id: f.parent_fine_id ? String(f.parent_fine_id) : "",
+    auto_number: f.auto_number ?? "",
+    renainf_number: f.renainf_number ?? "",
+    renainf_original: f.renainf_original ?? "",
+    points: f.points?.toString() ?? "",
+    infraction_date: f.infraction_date ?? "",
+    infraction_location: f.infraction_location ?? "",
+    infraction_code: f.infraction_code ?? "",
+    infraction_description: f.infraction_description ?? "",
+    issuing_body_code: f.issuing_body_code ?? "",
+    issuing_body: f.issuing_body ?? "",
+    driver_name: f.driver_name ?? "",
+    indication_deadline: f.indication_deadline ?? "",
+    form_sent_date: f.form_sent_date ?? "",
+    form_received_by: f.form_received_by ?? "",
+    protocol_date: f.protocol_date ?? "",
+    identification_method: f.identification_method ?? "",
+    invoice_status: f.invoice_status ?? "",
+    cigam_launch_number: f.cigam_launch_number ?? "",
+    amount: centsToReais(f.amount_cents),
+    discount: centsToReais(f.discount_cents),
+    amount_paid: centsToReais(f.amount_paid_cents),
+    due_date: f.due_date ?? "",
+    discount_launched: f.discount_launched ?? "",
+    discount_launch_date: f.discount_launch_date ?? "",
+    discount_method: f.discount_method ?? "",
+    discount_completed: f.discount_completed ?? "",
+    discount_completion_date: f.discount_completion_date ?? "",
+    status: f.status,
+    file_key: f.file_key ?? "",
+    file_name: f.file_name ?? "",
+  };
+}
+
+const EMPTY_FLOW_FORM = {
+  department: "",
+  flow_responsible_name: "",
+  flow_responsible_email: "",
+  flow_responsible_status: "nao_iniciado" as FlowStageStatus,
+  flow_department_status: "nao_iniciado" as FlowStageStatus,
+  flow_rh_status: "nao_iniciado" as FlowStageStatus,
+  discount_method: "",
+  discount_installments: "",
+  discount_completion_date: "",
+  flow_financial_status: "nao_iniciado" as FlowStageStatus,
+  cigam_launch_number: "",
+  notes: "",
+};
+
+type FlowFormState = typeof EMPTY_FLOW_FORM;
+
+function fineToFlowForm(f: Fine): FlowFormState {
+  return {
+    department: f.department ?? "",
+    flow_responsible_name: f.flow_responsible_name ?? "",
+    flow_responsible_email: f.flow_responsible_email ?? "",
+    flow_responsible_status: f.flow_responsible_status ?? "nao_iniciado",
+    flow_department_status: f.flow_department_status ?? "nao_iniciado",
+    flow_rh_status: f.flow_rh_status ?? "nao_iniciado",
+    discount_method: f.discount_method ?? "",
+    discount_installments: f.discount_installments?.toString() ?? "",
+    discount_completion_date: f.discount_completion_date ?? "",
+    flow_financial_status: f.flow_financial_status ?? "nao_iniciado",
+    cigam_launch_number: f.cigam_launch_number ?? "",
+    notes: f.notes ?? "",
+  };
+}
+
 export default function FinesManager({ canEdit }: { canEdit: boolean }) {
   const [fines, setFines] = useState<Fine[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -88,6 +167,12 @@ export default function FinesManager({ canEdit }: { canEdit: boolean }) {
   const [showImport, setShowImport] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+
+  const [flowFine, setFlowFine] = useState<Fine | null>(null);
+  const [flowForm, setFlowForm] = useState<FlowFormState>(EMPTY_FLOW_FORM);
+  const [flowSaving, setFlowSaving] = useState(false);
+  const [flowError, setFlowError] = useState<string | null>(null);
+  const [statusSavingId, setStatusSavingId] = useState<number | null>(null);
 
   async function loadFines() {
     setLoading(true);
@@ -191,51 +276,57 @@ export default function FinesManager({ canEdit }: { canEdit: boolean }) {
 
   function openEditForm(f: Fine) {
     setEditingId(f.id);
-    setForm({
-      vehicle_id: f.vehicle_id ? String(f.vehicle_id) : "",
-      plate_raw: f.plate_raw ?? "",
-      year: f.year?.toString() ?? "",
-      department: f.department ?? "",
-      fleet_company: f.fleet_company ?? "",
-      notes: f.notes ?? "",
-      fine_type: f.fine_type,
-      parent_fine_id: f.parent_fine_id ? String(f.parent_fine_id) : "",
-      auto_number: f.auto_number ?? "",
-      renainf_number: f.renainf_number ?? "",
-      renainf_original: f.renainf_original ?? "",
-      points: f.points?.toString() ?? "",
-      infraction_date: f.infraction_date ?? "",
-      infraction_location: f.infraction_location ?? "",
-      infraction_code: f.infraction_code ?? "",
-      infraction_description: f.infraction_description ?? "",
-      issuing_body_code: f.issuing_body_code ?? "",
-      issuing_body: f.issuing_body ?? "",
-      driver_name: f.driver_name ?? "",
-      indication_deadline: f.indication_deadline ?? "",
-      form_sent_date: f.form_sent_date ?? "",
-      form_received_by: f.form_received_by ?? "",
-      protocol_date: f.protocol_date ?? "",
-      identification_method: f.identification_method ?? "",
-      invoice_status: f.invoice_status ?? "",
-      cigam_launch_number: f.cigam_launch_number ?? "",
-      amount: centsToReais(f.amount_cents),
-      discount: centsToReais(f.discount_cents),
-      amount_paid: centsToReais(f.amount_paid_cents),
-      due_date: f.due_date ?? "",
-      discount_launched: f.discount_launched ?? "",
-      discount_launch_date: f.discount_launch_date ?? "",
-      discount_method: f.discount_method ?? "",
-      discount_completed: f.discount_completed ?? "",
-      discount_completion_date: f.discount_completion_date ?? "",
-      status: f.status,
-      file_key: f.file_key ?? "",
-      file_name: f.file_name ?? "",
-    });
+    setForm(fineToForm(f));
     setFormError(null);
     setDuplicateInfo(null);
     setPlateSearch("");
     setParentSearch("");
     setShowForm(true);
+  }
+
+  function openFlow(f: Fine) {
+    setFlowFine(f);
+    setFlowForm(fineToFlowForm(f));
+    setFlowError(null);
+  }
+
+  async function submitFlow(e: React.FormEvent) {
+    e.preventDefault();
+    if (!flowFine) return;
+    setFlowSaving(true);
+    setFlowError(null);
+    try {
+      const res = await fetch(`/api/fines/${flowFine.id}/fluxo`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(flowForm),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Erro ao salvar fluxo.");
+      setFlowFine(null);
+      await loadFines();
+    } catch (err) {
+      setFlowError(err instanceof Error ? err.message : "Erro inesperado.");
+    } finally {
+      setFlowSaving(false);
+    }
+  }
+
+  async function quickStatusChange(f: Fine, status: FineStatus) {
+    setStatusSavingId(f.id);
+    try {
+      const res = await fetch(`/api/fines/${f.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...fineToForm(f), status }),
+      });
+      if (!res.ok) throw new Error();
+      await loadFines();
+    } catch {
+      alert("Nao foi possivel atualizar o status.");
+    } finally {
+      setStatusSavingId(null);
+    }
   }
 
   async function submitForm(e: React.FormEvent, confirmDuplicate = false) {
@@ -386,77 +477,104 @@ export default function FinesManager({ canEdit }: { canEdit: boolean }) {
         {filtered.length} multa(s) nesta visualizacao
       </div>
 
-      <div className="card overflow-x-auto">
-        <table className="data-table" style={{ tableLayout: "fixed", width: "100%" }}>
-          <colgroup>
-            <col style={{ width: "6rem" }} />
-            <col />
-            <col style={{ width: "6.5rem" }} />
-            <col style={{ width: "9rem" }} />
-            <col style={{ width: "7rem" }} />
-            <col style={{ width: "8rem" }} />
-            <col style={{ width: "7.5rem" }} />
-            <col style={{ width: "11.5rem" }} />
-          </colgroup>
-          <thead>
-            <tr>
-              <th>Placa</th>
-              <th>Infracao</th>
-              <th>Data</th>
-              <th>Orgao</th>
-              <th>Valor</th>
-              <th>Setor</th>
-              <th>Status</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && (
-              <tr>
-                <td colSpan={8} className="text-center" style={{ color: "var(--text-faint)" }}>
-                  Carregando...
-                </td>
-              </tr>
-            )}
-            {!loading && filtered.length === 0 && (
-              <tr>
-                <td colSpan={8} className="text-center" style={{ color: "var(--text-faint)" }}>
-                  Nenhuma multa encontrada.
-                </td>
-              </tr>
-            )}
-            {filtered.map((f) => (
-              <tr key={f.id}>
-                <td className="mono font-medium whitespace-nowrap">{f.vehicle_plate ?? f.plate_raw ?? "-"}</td>
-                <td className="truncate" title={f.infraction_description ?? undefined}>
+      <div className="card overflow-hidden">
+        <div className="fines-row-head">
+          <div>Infracao</div>
+          <div>Veiculo</div>
+          <div>Ocorrencia</div>
+          <div>Condutor</div>
+          <div>Valores</div>
+          <div>Vencim.</div>
+          <div>Situacao e fluxo</div>
+        </div>
+        {loading && (
+          <div className="p-6 text-center text-sm" style={{ color: "var(--text-faint)" }}>
+            Carregando...
+          </div>
+        )}
+        {!loading && filtered.length === 0 && (
+          <div className="p-6 text-center text-sm" style={{ color: "var(--text-faint)" }}>
+            Nenhuma multa encontrada.
+          </div>
+        )}
+        {filtered.map((f) => {
+          const overdue = f.status === "pagto_data_vencida";
+          return (
+            <div key={f.id} className="fines-row">
+              <div>
+                <div className="font-medium">{f.auto_number ?? "-"}</div>
+                <div className="muted mono">RENAINF {f.renainf_number ?? "-"}</div>
+                <div className="muted">
+                  {f.fine_type === "segunda" ? "2a multa - vinculada" : "Autuacao original"}
+                </div>
+              </div>
+              <div>
+                <span className="plate-chip">{f.vehicle_plate ?? f.plate_raw ?? "-"}</span>
+                <div className={f.vehicle_id ? "fleet-own" : "fleet-rent"}>
+                  {f.fleet_company ?? (f.vehicle_id ? "Frota propria" : "Terceiro / locadora")}
+                </div>
+                <div className="muted">{f.department ?? "-"}</div>
+              </div>
+              <div>
+                <div className="dim">{formatDate(f.infraction_date)}</div>
+                <div className="muted">
+                  {f.infraction_code ?? "-"}
+                  {f.points !== null ? ` - ${f.points} ponto(s)` : ""}
+                </div>
+                <div className="muted truncate" title={f.infraction_description ?? undefined}>
                   {f.infraction_description ?? "-"}
-                  {f.fine_type === "segunda" && (
-                    <span style={{ color: "var(--text-faint)" }}> (2a multa)</span>
-                  )}
-                </td>
-                <td className="mono whitespace-nowrap">{formatDate(f.infraction_date)}</td>
-                <td className="truncate" title={f.issuing_body ?? undefined}>
-                  {f.issuing_body ?? "-"}
-                </td>
-                <td className="num whitespace-nowrap">{formatCents(f.amount_cents)}</td>
-                <td className="truncate">{f.department ?? "-"}</td>
-                <td>
-                  <Badge tone={FINE_STATUS_TONE[f.status]}>{FINE_STATUS_LABEL[f.status]}</Badge>
-                </td>
-                <td className="text-right whitespace-nowrap">
-                  <button onClick={() => openEditForm(f)} className="btn btn-ghost">
-                    {canEdit ? "Editar" : "Ver"}
-                  </button>
-                  {canEdit && (
-                    <button onClick={() => handleDelete(f)} className="btn btn-danger-ghost">
+                </div>
+                <div className="muted truncate" title={f.infraction_location ?? undefined}>
+                  {f.infraction_location ?? "-"}
+                </div>
+              </div>
+              <div>
+                <div className="font-medium">{f.driver_name ?? "-"}</div>
+                <div className="muted">{f.identification_method ?? (f.driver_name ? "-" : "Nao identificado")}</div>
+              </div>
+              <div>
+                <div className="font-medium">{formatCents(f.amount_cents)}</div>
+                <div className="val-paid">Pago: {formatCents(f.amount_paid_cents)}</div>
+                {!!f.discount_cents && <div className="val-disc">Desconto: {formatCents(f.discount_cents)}</div>}
+              </div>
+              <div className="dim" style={overdue ? { color: "var(--crit)" } : undefined}>
+                {formatDate(f.due_date)}
+              </div>
+              <div>
+                <select
+                  className={`status-select status-select-${FINE_STATUS_TONE[f.status]}`}
+                  value={f.status}
+                  disabled={!canEdit || statusSavingId === f.id}
+                  onChange={(e) => quickStatusChange(f, e.target.value as FineStatus)}
+                >
+                  {FINE_STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {FINE_STATUS_LABEL[s]}
+                    </option>
+                  ))}
+                </select>
+                <button type="button" className="flow-btn" onClick={() => openFlow(f)}>
+                  <span>
+                    Abrir fluxo interno
+                    <span className="flow-btn-who">
+                      {f.flow_responsible_name || FLOW_STAGE_STATUS_LABEL[f.flow_department_status]}
+                    </span>
+                  </span>
+                </button>
+                {canEdit && (
+                  <div className="flex gap-1 mt-1">
+                    <button onClick={() => openEditForm(f)} className="btn btn-ghost text-xs">
+                      Editar dados
+                    </button>
+                    <button onClick={() => handleDelete(f)} className="btn btn-danger-ghost text-xs">
                       Excluir
                     </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {showImport && (
@@ -465,6 +583,18 @@ export default function FinesManager({ canEdit }: { canEdit: boolean }) {
           error={importError}
           onClose={() => setShowImport(false)}
           onFile={handleImportPdf}
+        />
+      )}
+
+      {flowFine && (
+        <FlowModal
+          fine={flowFine}
+          form={flowForm}
+          setForm={setFlowForm}
+          saving={flowSaving}
+          error={flowError}
+          onClose={() => setFlowFine(null)}
+          onSubmit={submitFlow}
         />
       )}
 
@@ -1045,6 +1175,246 @@ function ImportPdfModal({
             {importing ? "Processando..." : "Iniciar leitura"}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function FlowModal({
+  fine,
+  form,
+  setForm,
+  saving,
+  error,
+  onClose,
+  onSubmit,
+}: {
+  fine: Fine;
+  form: FlowFormState;
+  setForm: (form: FlowFormState) => void;
+  saving: boolean;
+  error: string | null;
+  onClose: () => void;
+  onSubmit: (e: React.FormEvent) => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 flex items-center justify-center p-4 z-50"
+      style={{ background: "rgba(20, 24, 31, 0.45)" }}
+    >
+      <form
+        onSubmit={onSubmit}
+        className="card w-full max-w-2xl max-h-[90vh] overflow-y-auto flex flex-col"
+        style={{ background: "var(--surface)", boxShadow: "var(--shadow-md)" }}
+      >
+        <div className="p-6 pb-4" style={{ borderBottom: "1px solid var(--line)" }}>
+          <div className="section-label" style={{ marginBottom: 6 }}>
+            Responsavel - Departamento - RH - Financeiro
+          </div>
+          <h2 className="text-lg font-semibold" style={{ color: "var(--ink)" }}>
+            Fluxo interno da autuacao
+          </h2>
+          <p className="text-sm" style={{ color: "var(--text-dim)" }}>
+            {fine.auto_number ?? fine.id} - {fine.vehicle_plate ?? fine.plate_raw ?? "-"} - distribua as
+            proximas acoes sem alterar os dados oficiais da infracao.
+          </p>
+        </div>
+
+        <div className="flow-summary-strip">
+          <div>
+            <div className="label">Autuacao</div>
+            <div className="value">{fine.auto_number ?? "-"}</div>
+            <div className="note truncate">{fine.infraction_description ?? "-"}</div>
+          </div>
+          <div>
+            <div className="label">Condutor</div>
+            <div className="value">{fine.driver_name ?? "Nao identificado"}</div>
+            <div className="note">{fine.identification_method ?? "-"}</div>
+          </div>
+          <div>
+            <div className="label">Valor</div>
+            <div className="value">{formatCents(fine.amount_cents)}</div>
+            <div className="note">
+              {fine.due_date ? `Vencimento ${formatDate(fine.due_date)}` : "Vencimento nao informado"}
+            </div>
+          </div>
+        </div>
+
+        {error && <div className="alert alert-error mx-6 mt-4">{error}</div>}
+
+        <div className="p-6 flex flex-col gap-5">
+          <FlowStep num={1} title="Departamento e responsavel" desc="Quem deve identificar o condutor e acompanhar a resposta.">
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Departamento / setor">
+                <select
+                  className="input"
+                  value={form.department}
+                  onChange={(e) => setForm({ ...form, department: e.target.value })}
+                >
+                  <option value="">-</option>
+                  {DEPARTMENTS.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Responsavel">
+                <input
+                  className="input"
+                  placeholder="Nome do gestor ou responsavel"
+                  value={form.flow_responsible_name}
+                  onChange={(e) => setForm({ ...form, flow_responsible_name: e.target.value })}
+                />
+              </Field>
+              <Field label="E-mail do responsavel">
+                <input
+                  className="input"
+                  placeholder="opcional"
+                  value={form.flow_responsible_email}
+                  onChange={(e) => setForm({ ...form, flow_responsible_email: e.target.value })}
+                />
+              </Field>
+              <Field label="Situacao do responsavel">
+                <select
+                  className="input"
+                  value={form.flow_responsible_status}
+                  onChange={(e) => setForm({ ...form, flow_responsible_status: e.target.value as FlowStageStatus })}
+                >
+                  {FLOW_STAGE_STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {FLOW_STAGE_STATUS_LABEL[s]}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Situacao do departamento">
+                <select
+                  className="input"
+                  value={form.flow_department_status}
+                  onChange={(e) => setForm({ ...form, flow_department_status: e.target.value as FlowStageStatus })}
+                >
+                  {FLOW_STAGE_STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {FLOW_STAGE_STATUS_LABEL[s]}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+          </FlowStep>
+
+          <FlowStep num={2} title="Tratamento pelo RH" desc="Autorizacao, forma e competencia do desconto.">
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Situacao no RH">
+                <select
+                  className="input"
+                  value={form.flow_rh_status}
+                  onChange={(e) => setForm({ ...form, flow_rh_status: e.target.value as FlowStageStatus })}
+                >
+                  {FLOW_STAGE_STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {FLOW_STAGE_STATUS_LABEL[s]}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Forma do desconto">
+                <input
+                  className="input"
+                  placeholder="Ex: Folha, PIX, Comissao..."
+                  value={form.discount_method}
+                  onChange={(e) => setForm({ ...form, discount_method: e.target.value })}
+                />
+              </Field>
+              <Field label="Quantidade de parcelas">
+                <input
+                  type="number"
+                  min={1}
+                  className="input"
+                  value={form.discount_installments}
+                  onChange={(e) => setForm({ ...form, discount_installments: e.target.value })}
+                />
+              </Field>
+              <Field label="Data de efetivacao">
+                <input
+                  type="date"
+                  className="input"
+                  value={form.discount_completion_date}
+                  onChange={(e) => setForm({ ...form, discount_completion_date: e.target.value })}
+                />
+              </Field>
+            </div>
+          </FlowStep>
+
+          <FlowStep num={3} title="Financeiro" desc="Pagamento e vinculo com o lancamento contabil.">
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Situacao financeira">
+                <select
+                  className="input"
+                  value={form.flow_financial_status}
+                  onChange={(e) => setForm({ ...form, flow_financial_status: e.target.value as FlowStageStatus })}
+                >
+                  {FLOW_STAGE_STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {FLOW_STAGE_STATUS_LABEL[s]}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Numero do lancamento no CIGAM">
+                <input
+                  className="input"
+                  value={form.cigam_launch_number}
+                  onChange={(e) => setForm({ ...form, cigam_launch_number: e.target.value })}
+                />
+              </Field>
+            </div>
+            <Field label="Observacoes internas">
+              <textarea
+                className="input"
+                rows={3}
+                placeholder="Registre decisoes, contatos e pendencias."
+                value={form.notes}
+                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              />
+            </Field>
+          </FlowStep>
+        </div>
+
+        <div className="flex justify-end gap-2 p-4" style={{ borderTop: "1px solid var(--line)", background: "var(--surface-2)" }}>
+          <button type="button" onClick={onClose} className="btn btn-secondary">
+            Cancelar
+          </button>
+          <button type="submit" disabled={saving} className="btn btn-primary">
+            {saving ? "Salvando..." : "Salvar e distribuir fluxo"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function FlowStep({
+  num,
+  title,
+  desc,
+  children,
+}: {
+  num: number;
+  title: string;
+  desc: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flow-step">
+      <div className="flow-step-num">{num}</div>
+      <div className="flex-1 flex flex-col gap-3">
+        <div>
+          <div className="flow-step-title">{title}</div>
+          <div className="flow-step-desc">{desc}</div>
+        </div>
+        {children}
       </div>
     </div>
   );

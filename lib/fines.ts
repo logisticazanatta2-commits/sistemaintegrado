@@ -47,6 +47,29 @@ export const FINE_STATUS_TONE: Record<FineStatus, "ok" | "warn" | "crit" | "neut
 
 export type FineType = "primeira" | "segunda";
 
+export type FlowStageStatus = "nao_iniciado" | "aguardando_responsavel" | "em_andamento" | "concluido";
+
+export const FLOW_STAGE_STATUSES: FlowStageStatus[] = [
+  "nao_iniciado",
+  "aguardando_responsavel",
+  "em_andamento",
+  "concluido",
+];
+
+export const FLOW_STAGE_STATUS_LABEL: Record<FlowStageStatus, string> = {
+  nao_iniciado: "Nao iniciado",
+  aguardando_responsavel: "Aguardando responsavel",
+  em_andamento: "Em andamento",
+  concluido: "Concluido",
+};
+
+export const FLOW_STAGE_STATUS_TONE: Record<FlowStageStatus, "ok" | "warn" | "neutral"> = {
+  nao_iniciado: "neutral",
+  aguardando_responsavel: "warn",
+  em_andamento: "warn",
+  concluido: "ok",
+};
+
 export const DEPARTMENTS = [
   "Administrativo",
   "Comercial",
@@ -111,6 +134,13 @@ export interface Fine {
   discount_method: string | null;
   discount_completed: string | null;
   discount_completion_date: string | null;
+  discount_installments: number | null;
+  flow_responsible_name: string | null;
+  flow_responsible_email: string | null;
+  flow_responsible_status: FlowStageStatus;
+  flow_department_status: FlowStageStatus;
+  flow_rh_status: FlowStageStatus;
+  flow_financial_status: FlowStageStatus;
   status: FineStatus;
   file_key: string | null;
   file_name: string | null;
@@ -240,5 +270,50 @@ export function parseFineInput(body: unknown): FineInput {
     discount_completed: str(b, "discount_completed"),
     discount_completion_date: str(b, "discount_completion_date"),
     status: status as FineStatus,
+  };
+}
+
+export interface FineFlowInput {
+  department: string | null;
+  flow_responsible_name: string | null;
+  flow_responsible_email: string | null;
+  flow_responsible_status: FlowStageStatus;
+  flow_department_status: FlowStageStatus;
+  flow_rh_status: FlowStageStatus;
+  discount_method: string | null;
+  discount_installments: number | null;
+  discount_completion_date: string | null;
+  flow_financial_status: FlowStageStatus;
+  cigam_launch_number: string | null;
+  notes: string | null;
+}
+
+function flowStatus(b: Record<string, unknown>, key: string): FlowStageStatus {
+  const v = b[key];
+  if (typeof v === "string" && FLOW_STAGE_STATUSES.includes(v as FlowStageStatus)) {
+    return v as FlowStageStatus;
+  }
+  return "nao_iniciado";
+}
+
+export function parseFineFlowInput(body: unknown): FineFlowInput {
+  if (typeof body !== "object" || body === null) {
+    throw new FineValidationError("Corpo da requisicao invalido.");
+  }
+  const b = body as Record<string, unknown>;
+
+  return {
+    department: str(b, "department"),
+    flow_responsible_name: str(b, "flow_responsible_name"),
+    flow_responsible_email: str(b, "flow_responsible_email"),
+    flow_responsible_status: flowStatus(b, "flow_responsible_status"),
+    flow_department_status: flowStatus(b, "flow_department_status"),
+    flow_rh_status: flowStatus(b, "flow_rh_status"),
+    discount_method: str(b, "discount_method"),
+    discount_installments: num(b, "discount_installments"),
+    discount_completion_date: str(b, "discount_completion_date"),
+    flow_financial_status: flowStatus(b, "flow_financial_status"),
+    cigam_launch_number: str(b, "cigam_launch_number"),
+    notes: str(b, "notes"),
   };
 }
