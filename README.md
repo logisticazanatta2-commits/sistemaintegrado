@@ -27,6 +27,23 @@ O `next.config.ts` chama `initOpenNextCloudflareForDev()`, entao os bindings
 
 ## Deploy no Cloudflare (primeira vez)
 
+### Caminho rapido: script unico
+
+Se voce ja tem um [API Token](https://dash.cloudflare.com/profile/api-tokens)
+com permissao de Workers, D1 e R2, o script abaixo faz tudo (cria D1, cria
+R2, aplica migrations, pergunta se quer importar a frota real, builda e
+publica):
+
+```bash
+export CLOUDFLARE_API_TOKEN=seu_token_aqui
+./deploy.sh
+```
+
+E idempotente — pode rodar de novo sem duplicar banco ou bucket. Depois que
+terminar, acesse a URL publicada + `/setup` (passo 6 abaixo).
+
+### Passo a passo manual
+
 1. Login na Cloudflare:
 
    ```bash
