@@ -4,7 +4,15 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import type { SessionUser } from "@/lib/auth";
-import { IconDashboard, IconGauge, IconLogout, IconTruck, IconUsers, IconWrench } from "./icons";
+import {
+  IconAlertTicket,
+  IconDashboard,
+  IconGauge,
+  IconLogout,
+  IconTruck,
+  IconUsers,
+  IconWrench,
+} from "./icons";
 
 const ROLE_LABEL: Record<SessionUser["role"], string> = {
   admin: "Administrador",
@@ -16,6 +24,7 @@ const LINKS = [
   { href: "/veiculos", label: "Veiculos", icon: IconTruck },
   { href: "/hodometro", label: "Hodometro", icon: IconGauge },
   { href: "/manutencao", label: "Manutencao", icon: IconWrench },
+  { href: "/multas", label: "Multas", icon: IconAlertTicket },
 ];
 
 export default function Sidebar({ user }: { user: SessionUser }) {

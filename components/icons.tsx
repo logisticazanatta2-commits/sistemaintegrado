@@ -62,6 +62,16 @@ export function IconGauge({ className }: IconProps) {
   );
 }
 
+export function IconAlertTicket({ className }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4z" />
+      <path d="M12 8v4" />
+      <path d="M12 15.5h.01" />
+    </svg>
+  );
+}
+
 export function IconLogout({ className }: IconProps) {
   return (
     <svg {...base} className={className}>
