@@ -29,10 +29,18 @@ step "Instalando dependencias"
 npm install
 
 step "Verificando/criando banco D1 '$DB_NAME'"
-if npx wrangler d1 list --json 2>/dev/null | grep -q "\"name\": \"$DB_NAME\""; then
-  echo "Banco '$DB_NAME' ja existe, pulando criacao."
-else
-  npx wrangler d1 create "$DB_NAME"
+set +e
+npx wrangler d1 create "$DB_NAME"
+D1_STATUS=$?
+set -e
+if [ $D1_STATUS -ne 0 ]; then
+  D1_ERR=$(npx wrangler d1 create "$DB_NAME" 2>&1 || true)
+  if echo "$D1_ERR" | grep -qi "already exists"; then
+    echo "Banco '$DB_NAME' ja existe, seguindo em frente."
+  else
+    echo "$D1_ERR"
+    exit 1
+  fi
 fi
 
 DB_ID=$(npx wrangler d1 list --json 2>/dev/null | node -e "
@@ -66,10 +74,18 @@ node -e "
 "
 
 step "Verificando/criando bucket R2 '$BUCKET_NAME'"
-if npx wrangler r2 bucket list --json 2>/dev/null | grep -q "\"name\": \"$BUCKET_NAME\""; then
-  echo "Bucket '$BUCKET_NAME' ja existe, pulando criacao."
-else
-  npx wrangler r2 bucket create "$BUCKET_NAME"
+set +e
+npx wrangler r2 bucket create "$BUCKET_NAME"
+R2_STATUS=$?
+set -e
+if [ $R2_STATUS -ne 0 ]; then
+  R2_ERR=$(npx wrangler r2 bucket create "$BUCKET_NAME" 2>&1 || true)
+  if echo "$R2_ERR" | grep -qi "already exists"; then
+    echo "Bucket '$BUCKET_NAME' ja existe, seguindo em frente."
+  else
+    echo "$R2_ERR"
+    exit 1
+  fi
 fi
 
 step "Aplicando migrations no banco remoto"
