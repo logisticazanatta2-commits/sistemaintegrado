@@ -320,7 +320,19 @@ export default function OdometerManager({ canEdit }: { canEdit: boolean }) {
       </div>
 
       <div className="card overflow-x-auto">
-        <table className="data-table">
+        <table className="data-table" style={{ tableLayout: "fixed", width: "100%" }}>
+          <colgroup>
+            <col style={{ width: "6.5rem" }} />
+            <col />
+            <col style={{ width: "6.5rem" }} />
+            <col style={{ width: "6rem" }} />
+            <col style={{ width: "6rem" }} />
+            <col style={{ width: "6rem" }} />
+            <col style={{ width: "6rem" }} />
+            <col style={{ width: "3rem" }} />
+            <col style={{ width: "6rem" }} />
+            <col style={{ width: "12.5rem" }} />
+          </colgroup>
           <thead>
             <tr>
               <th>Placa</th>
@@ -353,19 +365,21 @@ export default function OdometerManager({ canEdit }: { canEdit: boolean }) {
             {filteredRows.map((r) => (
               <tr key={r.id}>
                 <td className="mono font-medium whitespace-nowrap">{r.plate ?? "-"}</td>
-                <td>{r.model}</td>
-                <td style={{ color: "var(--text-dim)" }}>{r.responsible ?? "-"}</td>
-                <td className="num">
+                <td className="truncate" title={r.model}>{r.model}</td>
+                <td className="truncate" title={r.responsible ?? undefined} style={{ color: "var(--text-dim)" }}>
+                  {r.responsible ?? "-"}
+                </td>
+                <td className="num whitespace-nowrap">
                   {r.prev_odometer !== null ? `${r.prev_odometer.toLocaleString("pt-BR")} km` : "-"}
                 </td>
-                <td className="num font-medium">
+                <td className="num font-medium whitespace-nowrap">
                   {r.last_odometer !== null ? `${r.last_odometer.toLocaleString("pt-BR")} km` : "-"}
                 </td>
-                <td className="num">
+                <td className="num whitespace-nowrap">
                   {r.deltaKm !== null ? (
                     `${r.deltaKm.toLocaleString("pt-BR")} km`
                   ) : (
-                    <span style={{ color: "var(--text-faint)" }}>Sem base anterior</span>
+                    <span style={{ color: "var(--text-faint)" }}>Sem base</span>
                   )}
                 </td>
                 <td className="mono whitespace-nowrap">{formatDate(r.last_reading_date)}</td>
