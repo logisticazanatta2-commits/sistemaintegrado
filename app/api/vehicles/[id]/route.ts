@@ -1,5 +1,6 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { NextRequest, NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/auth";
 import { ValidationError, parseVehicleInput, type Vehicle } from "@/lib/vehicles";
 
 export const dynamic = "force-dynamic";
@@ -8,6 +9,14 @@ export async function PATCH(
   request: NextRequest,
   ctx: RouteContext<"/api/vehicles/[id]">
 ) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 });
+  }
+  if (user.role !== "admin") {
+    return NextResponse.json({ error: "Sem permissao para editar veiculos." }, { status: 403 });
+  }
+
   const { id } = await ctx.params;
   const vehicleId = Number(id);
   if (!Number.isInteger(vehicleId)) {
@@ -84,6 +93,14 @@ export async function DELETE(
   _request: NextRequest,
   ctx: RouteContext<"/api/vehicles/[id]">
 ) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 });
+  }
+  if (user.role !== "admin") {
+    return NextResponse.json({ error: "Sem permissao para excluir veiculos." }, { status: 403 });
+  }
+
   const { id } = await ctx.params;
   const vehicleId = Number(id);
   if (!Number.isInteger(vehicleId)) {

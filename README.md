@@ -1,7 +1,8 @@
 # SIGF - Sistema Integrado de Gestao de Frota
 
-Base do sistema: cadastro de veiculos/equipamentos/particulares, rodando em
-Next.js + Cloudflare (Pages/Workers, D1 e R2).
+Cadastro de veiculos/equipamentos/particulares com acesso multiusuario
+(login + permissoes), rodando em Next.js + Cloudflare (Pages/Workers, D1 e
+R2).
 
 ## Stack
 
@@ -9,6 +10,8 @@ Next.js + Cloudflare (Pages/Workers, D1 e R2).
 - Cloudflare Workers via `@opennextjs/cloudflare`
 - Banco: Cloudflare D1 (binding `DB`)
 - Arquivos: Cloudflare R2 (binding `BUCKET`, ainda sem uso nesta etapa)
+- Autenticacao propria: sessao por cookie httpOnly, senha com PBKDF2-SHA256
+  (100k iteracoes), bloqueio apos 5 tentativas erradas
 
 ## Rodando localmente
 
@@ -45,7 +48,8 @@ O `next.config.ts` chama `initOpenNextCloudflareForDev()`, entao os bindings
    npx wrangler r2 bucket create sigf-arquivos
    ```
 
-4. Aplicar as migrations no banco remoto:
+4. Aplicar as migrations no banco remoto (cria as tabelas de veiculos e de
+   usuarios/sessoes):
 
    ```bash
    npm run db:migrate:remote
@@ -69,6 +73,22 @@ O `next.config.ts` chama `initOpenNextCloudflareForDev()`, entao os bindings
    em `wrangler.jsonc`). A URL fica disponivel no output do comando, ou em
    `*.workers.dev` / dominio customizado configurado no painel Cloudflare.
 
+6. **Criar o primeiro administrador.** Abra a URL publicada e va em
+   `/setup` (ex: `https://sigf-gestao-frota.SEU-SUBDOMINIO.workers.dev/setup`).
+   Essa tela so funciona uma vez — enquanto nao existir nenhum usuario
+   cadastrado. Depois de criar o admin, ela passa a mostrar "sistema ja
+   configurado" e redireciona para `/login`.
+
+   A partir dai, esse admin entra em `/admin/usuarios` para cadastrar as
+   demais pessoas que vao usar o sistema, escolhendo o papel de cada uma:
+
+   - **Administrador** — cadastra, edita e exclui veiculos, e gerencia
+     outros usuarios.
+   - **Visualizador** — so consulta a frota, sem editar nada.
+
+   Nao e possivel remover o proprio acesso de administrador nem ficar sem
+   nenhum admin ativo no sistema — a API bloqueia essas duas situacoes.
+
 ## Deploys seguintes
 
 Depois do setup inicial, qualquer mudanca:
@@ -81,9 +101,14 @@ npm run deploy
 ## Estrutura
 
 - `app/veiculos` — UI de cadastro (lista, criar, editar, excluir, filtro,
-  busca).
-- `app/api/vehicles` — API REST do cadastro.
-- `lib/vehicles.ts` — tipos e validacao compartilhados entre API e UI.
+  busca), visivel para qualquer usuario logado; edicao restrita a admin.
+- `app/admin/usuarios` — gestao de usuarios e permissoes (somente admin).
+- `app/login`, `app/setup` — autenticacao e configuracao inicial.
+- `app/api/vehicles` — API REST do cadastro (GET p/ qualquer logado,
+  escrita restrita a admin).
+- `app/api/auth`, `app/api/users` — login/logout/setup e gestao de usuarios.
+- `lib/vehicles.ts` — tipos e validacao do cadastro.
+- `lib/auth.ts` — hashing de senha, sessao, helpers de autorizacao.
 - `db/migrations` — migrations do D1 (numeradas, aplicadas via
   `wrangler d1 migrations apply`).
 
@@ -91,5 +116,5 @@ npm run deploy
 
 Ver documentacao completa de analise do sistema para o roteiro de evolucao
 (movimentacao por QR Code, manutencao/OS, abastecimento, multas,
-indicadores FIPE). Este cadastro de veiculos e a base sobre a qual os
-demais modulos serao plugados.
+indicadores FIPE). Este cadastro de veiculos com login e permissoes e a
+base sobre a qual os demais modulos serao plugados.

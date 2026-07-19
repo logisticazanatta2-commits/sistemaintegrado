@@ -1,10 +1,16 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { NextRequest, NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/auth";
 import { ValidationError, parseVehicleInput, type Vehicle } from "@/lib/vehicles";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 });
+  }
+
   const { env } = getCloudflareContext();
   const { searchParams } = new URL(request.url);
   const category = searchParams.get("category");
@@ -33,6 +39,14 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 });
+  }
+  if (user.role !== "admin") {
+    return NextResponse.json({ error: "Sem permissao para cadastrar veiculos." }, { status: 403 });
+  }
+
   const { env } = getCloudflareContext();
 
   let input;

@@ -41,7 +41,7 @@ const EMPTY_FORM = {
 
 type FormState = typeof EMPTY_FORM;
 
-export default function VehiclesManager() {
+export default function VehiclesManager({ canEdit }: { canEdit: boolean }) {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -177,12 +177,14 @@ export default function VehiclesManager() {
             className="rounded-md border border-slate-300 px-3 py-1.5 text-sm w-64 bg-white"
           />
         </div>
-        <button
-          onClick={openCreateForm}
-          className="rounded-md bg-slate-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-slate-700"
-        >
-          + Novo veiculo
-        </button>
+        {canEdit && (
+          <button
+            onClick={openCreateForm}
+            className="rounded-md bg-slate-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-slate-700"
+          >
+            + Novo veiculo
+          </button>
+        )}
       </div>
 
       <div className="text-xs text-slate-500">
@@ -251,18 +253,22 @@ export default function VehiclesManager() {
                   </span>
                 </td>
                 <td className="px-3 py-2 text-right whitespace-nowrap">
-                  <button
-                    onClick={() => openEditForm(v)}
-                    className="text-slate-600 hover:text-slate-900 mr-3"
-                  >
-                    Editar
-                  </button>
-                  <button
-                    onClick={() => handleDelete(v)}
-                    className="text-red-600 hover:text-red-800"
-                  >
-                    Excluir
-                  </button>
+                  {canEdit && (
+                    <>
+                      <button
+                        onClick={() => openEditForm(v)}
+                        className="text-slate-600 hover:text-slate-900 mr-3"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        onClick={() => handleDelete(v)}
+                        className="text-red-600 hover:text-red-800"
+                      >
+                        Excluir
+                      </button>
+                    </>
+                  )}
                 </td>
               </tr>
             ))}
