@@ -29,6 +29,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");
   const vehicleId = searchParams.get("vehicle_id");
+  const maintenanceType = searchParams.get("maintenance_type");
 
   const conditions: string[] = [];
   const params: unknown[] = [];
@@ -41,10 +42,14 @@ export async function GET(request: NextRequest) {
     conditions.push("wo.vehicle_id = ?");
     params.push(Number(vehicleId));
   }
+  if (maintenanceType) {
+    conditions.push("wo.maintenance_type = ?");
+    params.push(maintenanceType);
+  }
 
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
   const stmt = env.DB.prepare(
-    `${SELECT_WITH_VEHICLE} ${where} ORDER BY wo.created_at DESC LIMIT 500`
+    `${SELECT_WITH_VEHICLE} ${where} ORDER BY wo.opened_at DESC LIMIT 2000`
   ).bind(...params);
 
   const result = await stmt.all<WorkOrder>();
@@ -83,8 +88,10 @@ export async function POST(request: NextRequest) {
   const created = await env.DB.prepare(
     `INSERT INTO work_orders (
       vehicle_id, status, problem_description, workshop, requested_by,
-      approved_by, payment_method, final_cost_cents, opened_at, closed_at, notes
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?)
+      approved_by, payment_method, final_cost_cents, opened_at, closed_at, notes,
+      maintenance_type, os_number, invoice_number, payment_term, project_client,
+      odometer_at_service
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?, ?, ?, ?, ?, ?)
     RETURNING id`
   )
     .bind(
@@ -98,7 +105,13 @@ export async function POST(request: NextRequest) {
       input.final_cost_cents,
       input.opened_at,
       input.closed_at,
-      input.notes
+      input.notes,
+      input.maintenance_type,
+      input.os_number,
+      input.invoice_number,
+      input.payment_term,
+      input.project_client,
+      input.odometer_at_service
     )
     .first<{ id: number }>();
 

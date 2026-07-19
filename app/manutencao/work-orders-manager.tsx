@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { WorkOrder, WorkOrderItem, WorkOrderStatus } from "@/lib/work-orders";
+import type { MaintenanceType, WorkOrder, WorkOrderItem, WorkOrderStatus } from "@/lib/work-orders";
 import type { Vehicle } from "@/lib/vehicles";
 
 const STATUS_LABEL: Record<WorkOrderStatus, string> = {
@@ -18,6 +18,18 @@ const STATUS_LABEL: Record<WorkOrderStatus, string> = {
 };
 
 const STATUS_ORDER = Object.keys(STATUS_LABEL) as WorkOrderStatus[];
+
+const MAINTENANCE_TYPE_LABEL: Record<MaintenanceType, string> = {
+  preventiva: "Preventiva",
+  corretiva: "Corretiva",
+  periodica: "Periodica",
+  pneus: "Pneus",
+  recall: "Recall",
+  acessorios: "Acessorios",
+  outro: "Outro",
+};
+
+const MAINTENANCE_TYPE_ORDER = Object.keys(MAINTENANCE_TYPE_LABEL) as MaintenanceType[];
 
 function formatCents(cents: number | null | undefined): string {
   const value = (cents ?? 0) / 100;
@@ -36,6 +48,12 @@ const EMPTY_FORM = {
   opened_at: "",
   closed_at: "",
   notes: "",
+  maintenance_type: "" as MaintenanceType | "",
+  os_number: "",
+  invoice_number: "",
+  payment_term: "",
+  project_client: "",
+  odometer_at_service: "",
 };
 
 type FormState = typeof EMPTY_FORM;
@@ -47,6 +65,7 @@ export default function WorkOrdersManager({ canEdit }: { canEdit: boolean }) {
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<"" | WorkOrderStatus>("");
   const [vehicleFilter, setVehicleFilter] = useState("");
+  const [maintenanceTypeFilter, setMaintenanceTypeFilter] = useState<"" | MaintenanceType>("");
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -72,6 +91,7 @@ export default function WorkOrdersManager({ canEdit }: { canEdit: boolean }) {
       const params = new URLSearchParams();
       if (statusFilter) params.set("status", statusFilter);
       if (vehicleFilter) params.set("vehicle_id", vehicleFilter);
+      if (maintenanceTypeFilter) params.set("maintenance_type", maintenanceTypeFilter);
       const res = await fetch(`/api/work-orders?${params.toString()}`);
       if (!res.ok) throw new Error("Falha ao carregar ordens de servico.");
       const data = (await res.json()) as { workOrders: WorkOrder[] };
@@ -92,7 +112,7 @@ export default function WorkOrdersManager({ canEdit }: { canEdit: boolean }) {
     const timeout = setTimeout(loadWorkOrders, 200);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, vehicleFilter]);
+  }, [statusFilter, vehicleFilter, maintenanceTypeFilter]);
 
   const counts = useMemo(() => {
     return workOrders.reduce<Record<string, number>>((acc, wo) => {
@@ -123,6 +143,12 @@ export default function WorkOrdersManager({ canEdit }: { canEdit: boolean }) {
       opened_at: wo.opened_at ? wo.opened_at.slice(0, 10) : "",
       closed_at: wo.closed_at ? wo.closed_at.slice(0, 10) : "",
       notes: wo.notes ?? "",
+      maintenance_type: wo.maintenance_type ?? "",
+      os_number: wo.os_number ?? "",
+      invoice_number: wo.invoice_number ?? "",
+      payment_term: wo.payment_term ?? "",
+      project_client: wo.project_client ?? "",
+      odometer_at_service: wo.odometer_at_service !== null ? String(wo.odometer_at_service) : "",
     });
     setFormError(null);
     setShowForm(true);
@@ -150,6 +176,12 @@ export default function WorkOrdersManager({ canEdit }: { canEdit: boolean }) {
         opened_at: form.opened_at,
         closed_at: form.closed_at,
         notes: form.notes,
+        maintenance_type: form.maintenance_type,
+        os_number: form.os_number,
+        invoice_number: form.invoice_number,
+        payment_term: form.payment_term,
+        project_client: form.project_client,
+        odometer_at_service: form.odometer_at_service,
       };
       const url = editingId ? `/api/work-orders/${editingId}` : "/api/work-orders";
       const method = editingId ? "PATCH" : "POST";
@@ -246,6 +278,18 @@ export default function WorkOrdersManager({ canEdit }: { canEdit: boolean }) {
               </option>
             ))}
           </select>
+          <select
+            value={maintenanceTypeFilter}
+            onChange={(e) => setMaintenanceTypeFilter(e.target.value as MaintenanceType | "")}
+            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm bg-white"
+          >
+            <option value="">Todos os tipos</option>
+            {MAINTENANCE_TYPE_ORDER.map((value) => (
+              <option key={value} value={value}>
+                {MAINTENANCE_TYPE_LABEL[value]}
+              </option>
+            ))}
+          </select>
         </div>
         {canEdit && (
           <button
@@ -282,8 +326,10 @@ export default function WorkOrdersManager({ canEdit }: { canEdit: boolean }) {
           <thead className="bg-slate-100 text-left text-slate-600">
             <tr>
               <th className="px-3 py-2">#</th>
+              <th className="px-3 py-2">Data</th>
               <th className="px-3 py-2">Veiculo</th>
               <th className="px-3 py-2">Problema</th>
+              <th className="px-3 py-2">Tipo</th>
               <th className="px-3 py-2">Oficina</th>
               <th className="px-3 py-2">Custo</th>
               <th className="px-3 py-2">Status</th>
@@ -293,14 +339,14 @@ export default function WorkOrdersManager({ canEdit }: { canEdit: boolean }) {
           <tbody className="divide-y divide-slate-100">
             {loading && (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-slate-400">
+                <td colSpan={9} className="px-3 py-6 text-center text-slate-400">
                   Carregando...
                 </td>
               </tr>
             )}
             {!loading && workOrders.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-slate-400">
+                <td colSpan={9} className="px-3 py-6 text-center text-slate-400">
                   Nenhuma OS cadastrada.
                 </td>
               </tr>
@@ -308,9 +354,15 @@ export default function WorkOrdersManager({ canEdit }: { canEdit: boolean }) {
             {workOrders.map((wo) => (
               <tr key={wo.id} className="hover:bg-slate-50">
                 <td className="px-3 py-2 font-mono">{wo.id}</td>
+                <td className="px-3 py-2 font-mono whitespace-nowrap">
+                  {wo.opened_at ? wo.opened_at.slice(0, 10).split("-").reverse().join("/") : "-"}
+                </td>
                 <td className="px-3 py-2 font-mono">{wo.vehicle_plate ?? wo.vehicle_model}</td>
                 <td className="px-3 py-2 max-w-xs truncate" title={wo.problem_description}>
                   {wo.problem_description}
+                </td>
+                <td className="px-3 py-2">
+                  {wo.maintenance_type ? MAINTENANCE_TYPE_LABEL[wo.maintenance_type] : "-"}
                 </td>
                 <td className="px-3 py-2">{wo.workshop ?? "-"}</td>
                 <td className="px-3 py-2">
@@ -390,6 +442,22 @@ export default function WorkOrdersManager({ canEdit }: { canEdit: boolean }) {
                   ))}
                 </select>
               </Field>
+              <Field label="Tipo de manutencao">
+                <select
+                  className="input"
+                  value={form.maintenance_type}
+                  onChange={(e) =>
+                    setForm({ ...form, maintenance_type: e.target.value as MaintenanceType | "" })
+                  }
+                >
+                  <option value="">Nao informado</option>
+                  {MAINTENANCE_TYPE_ORDER.map((value) => (
+                    <option key={value} value={value}>
+                      {MAINTENANCE_TYPE_LABEL[value]}
+                    </option>
+                  ))}
+                </select>
+              </Field>
               <Field label="Oficina">
                 <input
                   className="input"
@@ -402,6 +470,14 @@ export default function WorkOrdersManager({ canEdit }: { canEdit: boolean }) {
                   className="input"
                   value={form.payment_method}
                   onChange={(e) => setForm({ ...form, payment_method: e.target.value })}
+                />
+              </Field>
+              <Field label="Prazo de pagamento">
+                <input
+                  className="input"
+                  value={form.payment_term}
+                  onChange={(e) => setForm({ ...form, payment_term: e.target.value })}
+                  placeholder="Ex: A VISTA, 28DD"
                 />
               </Field>
               <Field label="Solicitante">
@@ -443,6 +519,36 @@ export default function WorkOrdersManager({ canEdit }: { canEdit: boolean }) {
                   value={form.final_cost}
                   onChange={(e) => setForm({ ...form, final_cost: e.target.value })}
                   placeholder={itemsTotalCents ? (itemsTotalCents / 100).toFixed(2) : "0.00"}
+                />
+              </Field>
+              <Field label="Hodometro no atendimento (km)">
+                <input
+                  type="number"
+                  min={0}
+                  className="input"
+                  value={form.odometer_at_service}
+                  onChange={(e) => setForm({ ...form, odometer_at_service: e.target.value })}
+                />
+              </Field>
+              <Field label="Nº OS (externo)">
+                <input
+                  className="input"
+                  value={form.os_number}
+                  onChange={(e) => setForm({ ...form, os_number: e.target.value })}
+                />
+              </Field>
+              <Field label="Nº Nota Fiscal">
+                <input
+                  className="input"
+                  value={form.invoice_number}
+                  onChange={(e) => setForm({ ...form, invoice_number: e.target.value })}
+                />
+              </Field>
+              <Field label="Obra/Projeto/Cliente">
+                <input
+                  className="input"
+                  value={form.project_client}
+                  onChange={(e) => setForm({ ...form, project_client: e.target.value })}
                 />
               </Field>
             </div>

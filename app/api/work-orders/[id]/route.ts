@@ -62,6 +62,8 @@ export async function PATCH(
       vehicle_id = ?, status = ?, problem_description = ?, workshop = ?,
       requested_by = ?, approved_by = ?, payment_method = ?, final_cost_cents = ?,
       opened_at = COALESCE(?, opened_at), closed_at = ?, notes = ?,
+      maintenance_type = ?, os_number = ?, invoice_number = ?, payment_term = ?,
+      project_client = ?, odometer_at_service = ?,
       updated_at = datetime('now')
     WHERE id = ?
     RETURNING id`
@@ -78,6 +80,12 @@ export async function PATCH(
       input.opened_at,
       input.closed_at,
       input.notes,
+      input.maintenance_type,
+      input.os_number,
+      input.invoice_number,
+      input.payment_term,
+      input.project_client,
+      input.odometer_at_service,
       workOrderId
     )
     .first<{ id: number }>();

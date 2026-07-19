@@ -45,6 +45,27 @@ automaticamente a cada push. Para forcar um deploy sem push novo, va na aba
 **Actions** do repositorio, escolha "Deploy SIGF na Cloudflare" e clique em
 **Run workflow**.
 
+## Aplicar dados de seed (importacoes) no banco de producao
+
+O GitHub Actions so aplica **migrations de schema** automaticamente — arquivos
+de dados (`db/seed/*.sql`) precisam ser aplicados manualmente uma vez, pois
+representam importacoes pontuais, nao mudancas de estrutura. Depois que o
+schema estiver publicado (deploy automatico ja rodou), execute:
+
+```bash
+export CLOUDFLARE_API_TOKEN=seu_token_aqui
+npx wrangler d1 execute sigf-db --remote --file=db/seed/2026-07-19-veiculos-descontinuados.sql
+npx wrangler d1 execute sigf-db --remote --file=db/seed/2026-07-19-import-manutencao-historico.sql
+```
+
+O primeiro cadastra 4 veiculos que ja sairam da frota (vendidos/baixados) mas
+tem historico de manutencao real. O segundo importa 528 ordens de servico do
+historico real da planilha `Frota_ZANATTA_VDH`, com IDs a partir de 100001
+(nunca colidem com OS criadas manualmente pelo sistema, que comecam do 1).
+Ambos sao seguros de rodar apenas uma vez — rodar de novo duplicaria os
+registros, pois nao ha checagem de idempotencia nesses arquivos de dados
+(diferente das migrations de schema).
+
 ## Deploy manual (primeira vez / sem GitHub Actions)
 
 ### Caminho rapido: script unico

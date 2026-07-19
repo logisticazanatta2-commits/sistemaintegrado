@@ -32,6 +32,25 @@ export interface WorkOrderItem {
   created_at: string;
 }
 
+export type MaintenanceType =
+  | "preventiva"
+  | "corretiva"
+  | "periodica"
+  | "pneus"
+  | "recall"
+  | "acessorios"
+  | "outro";
+
+export const MAINTENANCE_TYPES: MaintenanceType[] = [
+  "preventiva",
+  "corretiva",
+  "periodica",
+  "pneus",
+  "recall",
+  "acessorios",
+  "outro",
+];
+
 export interface WorkOrder {
   id: number;
   vehicle_id: number;
@@ -45,6 +64,12 @@ export interface WorkOrder {
   opened_at: string;
   closed_at: string | null;
   notes: string | null;
+  maintenance_type: MaintenanceType | null;
+  os_number: string | null;
+  invoice_number: string | null;
+  payment_term: string | null;
+  project_client: string | null;
+  odometer_at_service: number | null;
   created_at: string;
   updated_at: string;
   vehicle_plate?: string | null;
@@ -66,6 +91,12 @@ export interface WorkOrderInput {
   opened_at: string | null;
   closed_at: string | null;
   notes: string | null;
+  maintenance_type: MaintenanceType | null;
+  os_number: string | null;
+  invoice_number: string | null;
+  payment_term: string | null;
+  project_client: string | null;
+  odometer_at_service: number | null;
 }
 
 export function parseWorkOrderInput(body: unknown): WorkOrderInput {
@@ -108,6 +139,26 @@ export function parseWorkOrderInput(body: unknown): WorkOrderInput {
     finalCostCents = Math.round(n);
   }
 
+  let maintenanceType: MaintenanceType | null = null;
+  if (b.maintenance_type !== undefined && b.maintenance_type !== null && b.maintenance_type !== "") {
+    if (
+      typeof b.maintenance_type !== "string" ||
+      !MAINTENANCE_TYPES.includes(b.maintenance_type as MaintenanceType)
+    ) {
+      throw new ValidationError("Tipo de manutencao invalido.");
+    }
+    maintenanceType = b.maintenance_type as MaintenanceType;
+  }
+
+  let odometerAtService: number | null = null;
+  if (b.odometer_at_service !== undefined && b.odometer_at_service !== null && b.odometer_at_service !== "") {
+    const n = Number(b.odometer_at_service);
+    if (!Number.isFinite(n) || n < 0) {
+      throw new ValidationError("Hodometro no atendimento precisa ser um numero positivo.");
+    }
+    odometerAtService = Math.round(n);
+  }
+
   return {
     vehicle_id: vehicleId,
     status,
@@ -120,6 +171,12 @@ export function parseWorkOrderInput(body: unknown): WorkOrderInput {
     opened_at: str("opened_at"),
     closed_at: str("closed_at"),
     notes: str("notes"),
+    maintenance_type: maintenanceType,
+    os_number: str("os_number"),
+    invoice_number: str("invoice_number"),
+    payment_term: str("payment_term"),
+    project_client: str("project_client"),
+    odometer_at_service: odometerAtService,
   };
 }
 
