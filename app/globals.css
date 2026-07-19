@@ -184,6 +184,53 @@ body {
 .badge-neutral { background: var(--neutral-bg); color: var(--neutral); }
 .badge-accent { background: var(--accent-bg); color: var(--accent-hover); }
 
+/* ---------- selectable tab pills ---------- */
+
+.tab-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.5rem 0.6rem 0.5rem 1rem;
+  cursor: pointer;
+  transition: border-color 0.12s ease, color 0.12s ease, background-color 0.12s ease;
+}
+
+.tab-pill:hover {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+.tab-pill-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.55rem;
+  height: 1.55rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: var(--surface-3);
+  color: var(--text-dim);
+}
+
+.tab-pill-active {
+  border-color: var(--accent);
+  color: var(--accent-hover);
+  background: var(--accent-bg);
+}
+
+.tab-pill-active .tab-pill-count {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
 /* ---------- surfaces ---------- */
 
 .card {

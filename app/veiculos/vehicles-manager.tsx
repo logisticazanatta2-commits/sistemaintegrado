@@ -10,6 +10,12 @@ const CATEGORY_LABEL: Record<VehicleCategory, string> = {
   particular: "Particular",
 };
 
+const CATEGORY_TAB_LABEL: Record<VehicleCategory, string> = {
+  veiculo: "Veiculos da frota",
+  equipamento: "Equipamentos",
+  particular: "Particulares",
+};
+
 const STATUS_LABEL: Record<VehicleStatus, string> = {
   disponivel: "Disponivel",
   em_uso: "Em uso",
@@ -43,7 +49,7 @@ const EMPTY_FORM = {
 type FormState = typeof EMPTY_FORM;
 
 export default function VehiclesManager({ canEdit }: { canEdit: boolean }) {
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [allVehicles, setAllVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<"" | VehicleCategory>("");
@@ -58,13 +64,10 @@ export default function VehiclesManager({ canEdit }: { canEdit: boolean }) {
     setLoading(true);
     setError(null);
     try {
-      const params = new URLSearchParams();
-      if (categoryFilter) params.set("category", categoryFilter);
-      if (search.trim()) params.set("q", search.trim());
-      const res = await fetch(`/api/vehicles?${params.toString()}`);
+      const res = await fetch("/api/vehicles");
       if (!res.ok) throw new Error("Falha ao carregar veiculos.");
       const data = (await res.json()) as { vehicles: Vehicle[] };
-      setVehicles(data.vehicles);
+      setAllVehicles(data.vehicles);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro inesperado.");
     } finally {
@@ -73,17 +76,30 @@ export default function VehiclesManager({ canEdit }: { canEdit: boolean }) {
   }
 
   useEffect(() => {
-    const timeout = setTimeout(loadVehicles, 250);
+    const timeout = setTimeout(loadVehicles, 0);
     return () => clearTimeout(timeout);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categoryFilter, search]);
+  }, []);
 
   const counts = useMemo(() => {
-    return vehicles.reduce<Record<string, number>>((acc, v) => {
+    return allVehicles.reduce<Record<string, number>>((acc, v) => {
       acc[v.category] = (acc[v.category] ?? 0) + 1;
       return acc;
     }, {});
-  }, [vehicles]);
+  }, [allVehicles]);
+
+  const vehicles = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return allVehicles.filter((v) => {
+      if (categoryFilter && v.category !== categoryFilter) return false;
+      if (!q) return true;
+      return (
+        v.plate?.toLowerCase().includes(q) ||
+        v.model.toLowerCase().includes(q) ||
+        v.nickname?.toLowerCase().includes(q) ||
+        v.asset_code?.toLowerCase().includes(q)
+      );
+    });
+  }, [allVehicles, categoryFilter, search]);
 
   function openCreateForm() {
     setEditingId(null);
@@ -154,29 +170,31 @@ export default function VehiclesManager({ canEdit }: { canEdit: boolean }) {
     }
   }
 
+  const totalCount = allVehicles.length;
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3 justify-between">
         <div className="flex flex-wrap gap-2">
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value as VehicleCategory | "")}
-            className="input"
+          <button
+            type="button"
+            onClick={() => setCategoryFilter("")}
+            className={`tab-pill${categoryFilter === "" ? " tab-pill-active" : ""}`}
           >
-            <option value="">Todas as categorias</option>
-            {Object.entries(CATEGORY_LABEL).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-          <input
-            type="text"
-            placeholder="Buscar por placa, modelo, apelido..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="input w-64"
-          />
+            Todos
+            <span className="tab-pill-count">{totalCount}</span>
+          </button>
+          {(Object.keys(CATEGORY_TAB_LABEL) as VehicleCategory[]).map((cat) => (
+            <button
+              key={cat}
+              type="button"
+              onClick={() => setCategoryFilter(cat)}
+              className={`tab-pill${categoryFilter === cat ? " tab-pill-active" : ""}`}
+            >
+              {CATEGORY_TAB_LABEL[cat]}
+              <span className="tab-pill-count">{counts[cat] ?? 0}</span>
+            </button>
+          ))}
         </div>
         {canEdit && (
           <button onClick={openCreateForm} className="btn btn-primary">
@@ -185,18 +203,16 @@ export default function VehiclesManager({ canEdit }: { canEdit: boolean }) {
         )}
       </div>
 
+      <input
+        type="text"
+        placeholder="Buscar por placa, modelo, apelido..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="input w-72"
+      />
+
       <div className="text-xs" style={{ color: "var(--text-faint)" }}>
-        {vehicles.length} registro(s)
-        {Object.entries(counts).length > 0 && (
-          <>
-            {" "}
-            (
-            {Object.entries(counts)
-              .map(([cat, n]) => `${CATEGORY_LABEL[cat as VehicleCategory]}: ${n}`)
-              .join(" | ")}
-            )
-          </>
-        )}
+        {vehicles.length} registro(s) nesta categoria
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
