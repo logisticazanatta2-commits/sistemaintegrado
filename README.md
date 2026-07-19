@@ -25,7 +25,27 @@ O `next.config.ts` chama `initOpenNextCloudflareForDev()`, entao os bindings
 (`DB`, `BUCKET`) ficam disponiveis mesmo em `next dev`, sem precisar do
 `wrangler dev`.
 
-## Deploy no Cloudflare (primeira vez)
+## Deploy automatico (GitHub Actions)
+
+A partir da primeira configuracao (abaixo), todo `git push` para a branch
+`claude/teste-campn8` builda e publica sozinho — sem terminal, sem risco do
+bug de build no Windows, ja que roda em runner Linux do GitHub.
+
+**Configuracao unica:**
+
+1. No GitHub, va em `Settings > Secrets and variables > Actions` do
+   repositorio.
+2. Clique em **New repository secret**.
+3. Nome: `CLOUDFLARE_API_TOKEN`. Valor: seu API Token da Cloudflare (o mesmo
+   usado nos passos manuais abaixo, com permissao de Workers, D1 e R2).
+4. Salve.
+
+Pronto — o workflow em `.github/workflows/deploy.yml` cuida do resto
+automaticamente a cada push. Para forcar um deploy sem push novo, va na aba
+**Actions** do repositorio, escolha "Deploy SIGF na Cloudflare" e clique em
+**Run workflow**.
+
+## Deploy manual (primeira vez / sem GitHub Actions)
 
 ### Caminho rapido: script unico
 

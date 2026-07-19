@@ -12,7 +12,7 @@
     {
       "binding": "DB",
       "database_name": "sigf-db",
-      "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+      "database_id": "b129a881-3ec4-492f-b505-c19b0bb84bcb",
       "migrations_dir": "db/migrations"
     }
   ],
