@@ -46,6 +46,14 @@ export const VEHICLE_STATUSES: VehicleStatus[] = [
   "inativo",
 ];
 
+export const VEHICLE_STATUS_TONE: Record<VehicleStatus, "ok" | "info" | "warn" | "crit" | "neutral"> = {
+  disponivel: "ok",
+  em_uso: "info",
+  em_manutencao: "warn",
+  bloqueado: "crit",
+  inativo: "neutral",
+};
+
 export function normalizePlate(raw: string): string {
   return raw
     .toUpperCase()

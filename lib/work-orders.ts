@@ -23,6 +23,19 @@ export const WORK_ORDER_STATUSES: WorkOrderStatus[] = [
   "cancelada",
 ];
 
+export const WORK_ORDER_STATUS_TONE: Record<WorkOrderStatus, "ok" | "info" | "warn" | "crit" | "neutral"> = {
+  solicitada: "neutral",
+  em_analise: "neutral",
+  aguardando_orcamento: "warn",
+  aguardando_aprovacao: "warn",
+  aprovada: "info",
+  em_execucao: "info",
+  concluida: "ok",
+  faturada: "ok",
+  encerrada: "neutral",
+  cancelada: "crit",
+};
+
 export interface WorkOrderItem {
   id: number;
   work_order_id: number;

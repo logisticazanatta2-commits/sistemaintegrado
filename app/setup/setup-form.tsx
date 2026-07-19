@@ -34,12 +34,8 @@ export default function SetupForm() {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-      {error && (
-        <div className="rounded-md bg-red-50 text-red-700 text-sm px-3 py-2 border border-red-200">
-          {error}
-        </div>
-      )}
-      <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
+      {error && <div className="alert alert-error">{error}</div>}
+      <label className="field-label">
         Nome
         <input
           className="input"
@@ -48,7 +44,7 @@ export default function SetupForm() {
           onChange={(e) => setName(e.target.value)}
         />
       </label>
-      <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
+      <label className="field-label">
         E-mail
         <input
           type="email"
@@ -58,7 +54,7 @@ export default function SetupForm() {
           onChange={(e) => setEmail(e.target.value)}
         />
       </label>
-      <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
+      <label className="field-label">
         Senha (minimo 8 caracteres)
         <input
           type="password"
@@ -69,11 +65,7 @@ export default function SetupForm() {
           onChange={(e) => setPassword(e.target.value)}
         />
       </label>
-      <button
-        type="submit"
-        disabled={saving}
-        className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50 mt-2"
-      >
+      <button type="submit" disabled={saving} className="btn btn-primary mt-2 w-full">
         {saving ? "Criando..." : "Criar administrador"}
       </button>
     </form>

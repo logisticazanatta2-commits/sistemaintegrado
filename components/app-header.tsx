@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { SessionUser } from "@/lib/auth";
+import { BrandMark } from "./brand-mark";
 import LogoutButton from "./logout-button";
+import NavLinks from "./nav-links";
 
 const ROLE_LABEL: Record<SessionUser["role"], string> = {
   admin: "Administrador",
@@ -9,31 +11,29 @@ const ROLE_LABEL: Record<SessionUser["role"], string> = {
 
 export default function AppHeader({ user }: { user: SessionUser }) {
   return (
-    <header className="border-b border-slate-200 bg-white">
-      <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
-        <nav className="flex items-center gap-5 text-sm">
-          <Link href="/veiculos" className="font-semibold text-slate-900">
-            SIGF
-          </Link>
-          <Link href="/veiculos" className="text-slate-600 hover:text-slate-900">
-            Veiculos
-          </Link>
-          <Link href="/manutencao" className="text-slate-600 hover:text-slate-900">
-            Manutencao
-          </Link>
-          {user.role === "admin" && (
-            <Link href="/admin/usuarios" className="text-slate-600 hover:text-slate-900">
-              Usuarios
-            </Link>
-          )}
-        </nav>
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-slate-500">
-            {user.name}{" "}
-            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600 ml-1">
-              {ROLE_LABEL[user.role]}
+    <header
+      className="sticky top-0 z-40"
+      style={{ background: "var(--surface)", borderBottom: "1px solid var(--line)" }}
+    >
+      <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-6">
+          <Link href="/veiculos" className="flex items-center gap-2 shrink-0">
+            <BrandMark size="sm" />
+            <span className="font-semibold tracking-tight" style={{ color: "var(--ink)" }}>
+              SIGF
             </span>
-          </span>
+          </Link>
+          <NavLinks role={user.role} />
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="text-right leading-tight hidden sm:block">
+            <div className="text-sm font-medium" style={{ color: "var(--text)" }}>
+              {user.name}
+            </div>
+            <div className="text-xs" style={{ color: "var(--text-faint)" }}>
+              {ROLE_LABEL[user.role]}
+            </div>
+          </div>
           <LogoutButton />
         </div>
       </div>

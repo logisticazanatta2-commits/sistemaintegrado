@@ -15,11 +15,7 @@ export default function LogoutButton() {
   }
 
   return (
-    <button
-      onClick={handleLogout}
-      disabled={loading}
-      className="text-sm text-slate-600 hover:text-slate-900 disabled:opacity-50"
-    >
+    <button onClick={handleLogout} disabled={loading} className="btn btn-ghost">
       {loading ? "Saindo..." : "Sair"}
     </button>
   );

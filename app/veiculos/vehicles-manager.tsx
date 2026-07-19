@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { Vehicle, VehicleCategory, VehicleStatus } from "@/lib/vehicles";
+import { Badge } from "@/components/badge";
+import { VEHICLE_STATUS_TONE, type Vehicle, type VehicleCategory, type VehicleStatus } from "@/lib/vehicles";
 
 const CATEGORY_LABEL: Record<VehicleCategory, string> = {
   veiculo: "Veiculo",
@@ -160,7 +161,7 @@ export default function VehiclesManager({ canEdit }: { canEdit: boolean }) {
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value as VehicleCategory | "")}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm bg-white"
+            className="input"
           >
             <option value="">Todas as categorias</option>
             {Object.entries(CATEGORY_LABEL).map(([value, label]) => (
@@ -174,20 +175,17 @@ export default function VehiclesManager({ canEdit }: { canEdit: boolean }) {
             placeholder="Buscar por placa, modelo, apelido..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm w-64 bg-white"
+            className="input w-64"
           />
         </div>
         {canEdit && (
-          <button
-            onClick={openCreateForm}
-            className="rounded-md bg-slate-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-slate-700"
-          >
+          <button onClick={openCreateForm} className="btn btn-primary">
             + Novo veiculo
           </button>
         )}
       </div>
 
-      <div className="text-xs text-slate-500">
+      <div className="text-xs" style={{ color: "var(--text-faint)" }}>
         {vehicles.length} registro(s)
         {Object.entries(counts).length > 0 && (
           <>
@@ -201,70 +199,60 @@ export default function VehiclesManager({ canEdit }: { canEdit: boolean }) {
         )}
       </div>
 
-      {error && (
-        <div className="rounded-md bg-red-50 text-red-700 text-sm px-3 py-2 border border-red-200">
-          {error}
-        </div>
-      )}
+      {error && <div className="alert alert-error">{error}</div>}
 
-      <div className="overflow-x-auto rounded-md border border-slate-200 bg-white">
-        <table className="min-w-full text-sm">
-          <thead className="bg-slate-100 text-left text-slate-600">
+      <div className="card overflow-x-auto">
+        <table className="data-table">
+          <thead>
             <tr>
-              <th className="px-3 py-2">Placa</th>
-              <th className="px-3 py-2">Modelo</th>
-              <th className="px-3 py-2">Categoria</th>
-              <th className="px-3 py-2">Responsavel</th>
-              <th className="px-3 py-2">UF/Base</th>
-              <th className="px-3 py-2">Hodometro</th>
-              <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2"></th>
+              <th>Placa</th>
+              <th>Modelo</th>
+              <th>Categoria</th>
+              <th>Responsavel</th>
+              <th>UF/Base</th>
+              <th>Hodometro</th>
+              <th>Status</th>
+              <th></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody>
             {loading && (
               <tr>
-                <td colSpan={8} className="px-3 py-6 text-center text-slate-400">
+                <td colSpan={8} className="text-center" style={{ color: "var(--text-faint)" }}>
                   Carregando...
                 </td>
               </tr>
             )}
             {!loading && vehicles.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-3 py-6 text-center text-slate-400">
+                <td colSpan={8} className="text-center" style={{ color: "var(--text-faint)" }}>
                   Nenhum veiculo cadastrado.
                 </td>
               </tr>
             )}
             {vehicles.map((v) => (
-              <tr key={v.id} className="hover:bg-slate-50">
-                <td className="px-3 py-2 font-mono">{v.plate ?? v.asset_code ?? "-"}</td>
-                <td className="px-3 py-2">
+              <tr key={v.id}>
+                <td className="mono font-medium">{v.plate ?? v.asset_code ?? "-"}</td>
+                <td>
                   {v.model}
-                  {v.nickname && <span className="text-slate-400"> ({v.nickname})</span>}
+                  {v.nickname && (
+                    <span style={{ color: "var(--text-faint)" }}> ({v.nickname})</span>
+                  )}
                 </td>
-                <td className="px-3 py-2">{CATEGORY_LABEL[v.category]}</td>
-                <td className="px-3 py-2">{v.responsible ?? "-"}</td>
-                <td className="px-3 py-2">{v.uf_base ?? "-"}</td>
-                <td className="px-3 py-2">{v.odometer.toLocaleString("pt-BR")} km</td>
-                <td className="px-3 py-2">
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs">
-                    {STATUS_LABEL[v.status]}
-                  </span>
+                <td style={{ color: "var(--text-dim)" }}>{CATEGORY_LABEL[v.category]}</td>
+                <td style={{ color: "var(--text-dim)" }}>{v.responsible ?? "-"}</td>
+                <td style={{ color: "var(--text-dim)" }}>{v.uf_base ?? "-"}</td>
+                <td className="mono">{v.odometer.toLocaleString("pt-BR")} km</td>
+                <td>
+                  <Badge tone={VEHICLE_STATUS_TONE[v.status]}>{STATUS_LABEL[v.status]}</Badge>
                 </td>
-                <td className="px-3 py-2 text-right whitespace-nowrap">
+                <td className="text-right whitespace-nowrap">
                   {canEdit && (
                     <>
-                      <button
-                        onClick={() => openEditForm(v)}
-                        className="text-slate-600 hover:text-slate-900 mr-3"
-                      >
+                      <button onClick={() => openEditForm(v)} className="btn btn-ghost">
                         Editar
                       </button>
-                      <button
-                        onClick={() => handleDelete(v)}
-                        className="text-red-600 hover:text-red-800"
-                      >
+                      <button onClick={() => handleDelete(v)} className="btn btn-danger-ghost">
                         Excluir
                       </button>
                     </>
@@ -277,165 +265,176 @@ export default function VehiclesManager({ canEdit }: { canEdit: boolean }) {
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-50">
+        <div
+          className="fixed inset-0 flex items-center justify-center p-4 z-50"
+          style={{ background: "rgba(20, 24, 31, 0.45)" }}
+        >
           <form
             onSubmit={handleSubmit}
-            className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 flex flex-col gap-4"
+            className="card w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 flex flex-col gap-5"
+            style={{ boxShadow: "var(--shadow-md)" }}
           >
-            <h2 className="text-lg font-semibold">
+            <h2 className="text-base font-semibold" style={{ color: "var(--ink)" }}>
               {editingId ? "Editar veiculo" : "Novo veiculo"}
             </h2>
 
-            {formError && (
-              <div className="rounded-md bg-red-50 text-red-700 text-sm px-3 py-2 border border-red-200">
-                {formError}
-              </div>
-            )}
+            {formError && <div className="alert alert-error">{formError}</div>}
 
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Categoria">
-                <select
-                  value={form.category}
-                  onChange={(e) =>
-                    setForm({ ...form, category: e.target.value as VehicleCategory })
-                  }
-                  className="input"
-                >
-                  {Object.entries(CATEGORY_LABEL).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Status">
-                <select
-                  value={form.status}
-                  onChange={(e) =>
-                    setForm({ ...form, status: e.target.value as VehicleStatus })
-                  }
-                  className="input"
-                >
-                  {Object.entries(STATUS_LABEL).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Placa">
-                <input
-                  className="input"
-                  value={form.plate}
-                  onChange={(e) => setForm({ ...form, plate: e.target.value })}
-                  placeholder="ABC1D23"
-                />
-              </Field>
-              <Field label="Modelo *">
-                <input
-                  className="input"
-                  required
-                  value={form.model}
-                  onChange={(e) => setForm({ ...form, model: e.target.value })}
-                />
-              </Field>
-              <Field label="Tipo">
-                <input
-                  className="input"
-                  value={form.vehicle_type}
-                  onChange={(e) => setForm({ ...form, vehicle_type: e.target.value })}
-                />
-              </Field>
-              <Field label="Apelido">
-                <input
-                  className="input"
-                  value={form.nickname}
-                  onChange={(e) => setForm({ ...form, nickname: e.target.value })}
-                />
-              </Field>
-              <Field label="Responsavel">
-                <input
-                  className="input"
-                  value={form.responsible}
-                  onChange={(e) => setForm({ ...form, responsible: e.target.value })}
-                />
-              </Field>
-              <Field label="Centro de custo / Local">
-                <input
-                  className="input"
-                  value={form.cost_center}
-                  onChange={(e) => setForm({ ...form, cost_center: e.target.value })}
-                />
-              </Field>
-              <Field label="UF / Base">
-                <input
-                  className="input"
-                  value={form.uf_base}
-                  onChange={(e) => setForm({ ...form, uf_base: e.target.value })}
-                />
-              </Field>
-              <Field label="Classe de frota">
-                <input
-                  className="input"
-                  value={form.fleet_class}
-                  onChange={(e) => setForm({ ...form, fleet_class: e.target.value })}
-                  placeholder="Ex: VEICULO LEVE, PTA, BOBCAT"
-                />
-              </Field>
-              <Field label="Hodometro (km)">
-                <input
-                  type="number"
-                  min={0}
-                  className="input"
-                  value={form.odometer}
-                  onChange={(e) => setForm({ ...form, odometer: e.target.value })}
-                />
-              </Field>
-              <Field label="Codigo patrimonial">
-                <input
-                  className="input"
-                  value={form.asset_code}
-                  onChange={(e) => setForm({ ...form, asset_code: e.target.value })}
-                />
-              </Field>
-              <Field label="RENAVAM">
-                <input
-                  className="input"
-                  value={form.renavam}
-                  onChange={(e) => setForm({ ...form, renavam: e.target.value })}
-                />
-              </Field>
-              <Field label="Chassi">
-                <input
-                  className="input"
-                  value={form.chassis}
-                  onChange={(e) => setForm({ ...form, chassis: e.target.value })}
-                />
-              </Field>
-              <Field label="Ano fabricacao">
-                <input
-                  type="number"
-                  className="input"
-                  value={form.manufacture_year}
-                  onChange={(e) => setForm({ ...form, manufacture_year: e.target.value })}
-                />
-              </Field>
-              <Field label="Ano modelo">
-                <input
-                  type="number"
-                  className="input"
-                  value={form.model_year}
-                  onChange={(e) => setForm({ ...form, model_year: e.target.value })}
-                />
-              </Field>
-              <Field label="Proprietario">
-                <input
-                  className="input"
-                  value={form.owner_name}
-                  onChange={(e) => setForm({ ...form, owner_name: e.target.value })}
-                />
-              </Field>
-            </div>
+            <FormSection label="Identificacao">
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Categoria">
+                  <select
+                    value={form.category}
+                    onChange={(e) =>
+                      setForm({ ...form, category: e.target.value as VehicleCategory })
+                    }
+                    className="input"
+                  >
+                    {Object.entries(CATEGORY_LABEL).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Status">
+                  <select
+                    value={form.status}
+                    onChange={(e) => setForm({ ...form, status: e.target.value as VehicleStatus })}
+                    className="input"
+                  >
+                    {Object.entries(STATUS_LABEL).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Placa">
+                  <input
+                    className="input"
+                    value={form.plate}
+                    onChange={(e) => setForm({ ...form, plate: e.target.value })}
+                    placeholder="ABC1D23"
+                  />
+                </Field>
+                <Field label="Modelo *">
+                  <input
+                    className="input"
+                    required
+                    value={form.model}
+                    onChange={(e) => setForm({ ...form, model: e.target.value })}
+                  />
+                </Field>
+                <Field label="Tipo">
+                  <input
+                    className="input"
+                    value={form.vehicle_type}
+                    onChange={(e) => setForm({ ...form, vehicle_type: e.target.value })}
+                  />
+                </Field>
+                <Field label="Apelido">
+                  <input
+                    className="input"
+                    value={form.nickname}
+                    onChange={(e) => setForm({ ...form, nickname: e.target.value })}
+                  />
+                </Field>
+              </div>
+            </FormSection>
+
+            <FormSection label="Localizacao e responsavel">
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Responsavel">
+                  <input
+                    className="input"
+                    value={form.responsible}
+                    onChange={(e) => setForm({ ...form, responsible: e.target.value })}
+                  />
+                </Field>
+                <Field label="Centro de custo / Local">
+                  <input
+                    className="input"
+                    value={form.cost_center}
+                    onChange={(e) => setForm({ ...form, cost_center: e.target.value })}
+                  />
+                </Field>
+                <Field label="UF / Base">
+                  <input
+                    className="input"
+                    value={form.uf_base}
+                    onChange={(e) => setForm({ ...form, uf_base: e.target.value })}
+                  />
+                </Field>
+                <Field label="Classe de frota">
+                  <input
+                    className="input"
+                    value={form.fleet_class}
+                    onChange={(e) => setForm({ ...form, fleet_class: e.target.value })}
+                    placeholder="Ex: VEICULO LEVE, PTA, BOBCAT"
+                  />
+                </Field>
+                <Field label="Hodometro (km)">
+                  <input
+                    type="number"
+                    min={0}
+                    className="input"
+                    value={form.odometer}
+                    onChange={(e) => setForm({ ...form, odometer: e.target.value })}
+                  />
+                </Field>
+              </div>
+            </FormSection>
+
+            <FormSection label="Documentacao">
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Codigo patrimonial">
+                  <input
+                    className="input"
+                    value={form.asset_code}
+                    onChange={(e) => setForm({ ...form, asset_code: e.target.value })}
+                  />
+                </Field>
+                <Field label="RENAVAM">
+                  <input
+                    className="input"
+                    value={form.renavam}
+                    onChange={(e) => setForm({ ...form, renavam: e.target.value })}
+                  />
+                </Field>
+                <Field label="Chassi">
+                  <input
+                    className="input"
+                    value={form.chassis}
+                    onChange={(e) => setForm({ ...form, chassis: e.target.value })}
+                  />
+                </Field>
+                <Field label="Proprietario">
+                  <input
+                    className="input"
+                    value={form.owner_name}
+                    onChange={(e) => setForm({ ...form, owner_name: e.target.value })}
+                  />
+                </Field>
+                <Field label="Ano fabricacao">
+                  <input
+                    type="number"
+                    className="input"
+                    value={form.manufacture_year}
+                    onChange={(e) => setForm({ ...form, manufacture_year: e.target.value })}
+                  />
+                </Field>
+                <Field label="Ano modelo">
+                  <input
+                    type="number"
+                    className="input"
+                    value={form.model_year}
+                    onChange={(e) => setForm({ ...form, model_year: e.target.value })}
+                  />
+                </Field>
+              </div>
+            </FormSection>
+
             <Field label="Observacoes">
               <textarea
                 className="input"
@@ -445,19 +444,15 @@ export default function VehiclesManager({ canEdit }: { canEdit: boolean }) {
               />
             </Field>
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex justify-end gap-2 pt-2" style={{ borderTop: "1px solid var(--line)" }}>
               <button
                 type="button"
                 onClick={() => setShowForm(false)}
-                className="rounded-md px-4 py-1.5 text-sm border border-slate-300"
+                className="btn btn-secondary mt-4"
               >
                 Cancelar
               </button>
-              <button
-                type="submit"
-                disabled={saving}
-                className="rounded-md bg-slate-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
-              >
+              <button type="submit" disabled={saving} className="btn btn-primary mt-4">
                 {saving ? "Salvando..." : "Salvar"}
               </button>
             </div>
@@ -468,9 +463,18 @@ export default function VehiclesManager({ canEdit }: { canEdit: boolean }) {
   );
 }
 
+function FormSection({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-2.5">
+      <div className="section-label">{label}</div>
+      {children}
+    </div>
+  );
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
+    <label className="field-label">
       {label}
       {children}
     </label>

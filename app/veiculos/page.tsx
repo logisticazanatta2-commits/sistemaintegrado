@@ -1,4 +1,5 @@
 import AppHeader from "@/components/app-header";
+import { PageHeader } from "@/components/page-header";
 import { requireUser } from "@/lib/auth";
 import VehiclesManager from "./vehicles-manager";
 
@@ -10,11 +11,11 @@ export default async function VeiculosPage() {
   return (
     <>
       <AppHeader user={user} />
-      <main className="flex-1 p-6 max-w-6xl w-full mx-auto">
-        <h1 className="text-2xl font-bold tracking-tight mb-1">Cadastro de Veiculos</h1>
-        <p className="text-slate-600 mb-6 text-sm">
-          Veiculos, equipamentos e particulares vinculados a frota.
-        </p>
+      <main className="flex-1 p-6 max-w-6xl w-full mx-auto" style={{ background: "var(--paper)" }}>
+        <PageHeader
+          title="Cadastro de Veiculos"
+          description="Veiculos, equipamentos e particulares vinculados a frota."
+        />
         <VehiclesManager canEdit={user.role === "admin"} />
       </main>
     </>

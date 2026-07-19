@@ -1,7 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import type { MaintenanceType, WorkOrder, WorkOrderItem, WorkOrderStatus } from "@/lib/work-orders";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import { Badge } from "@/components/badge";
+import {
+  WORK_ORDER_STATUS_TONE,
+  type MaintenanceType,
+  type WorkOrder,
+  type WorkOrderItem,
+  type WorkOrderStatus,
+} from "@/lib/work-orders";
 import type { Vehicle } from "@/lib/vehicles";
 
 const STATUS_LABEL: Record<WorkOrderStatus, string> = {
@@ -36,6 +43,11 @@ function formatCents(cents: number | null | undefined): string {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+function formatDate(value: string | null): string {
+  if (!value) return "-";
+  return value.slice(0, 10).split("-").reverse().join("/");
+}
+
 const EMPTY_FORM = {
   vehicle_id: "",
   status: "solicitada" as WorkOrderStatus,
@@ -66,6 +78,10 @@ export default function WorkOrdersManager({ canEdit }: { canEdit: boolean }) {
   const [statusFilter, setStatusFilter] = useState<"" | WorkOrderStatus>("");
   const [vehicleFilter, setVehicleFilter] = useState("");
   const [maintenanceTypeFilter, setMaintenanceTypeFilter] = useState<"" | MaintenanceType>("");
+
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [expandedItems, setExpandedItems] = useState<Record<number, WorkOrderItem[]>>({});
+  const [expandLoading, setExpandLoading] = useState<number | null>(null);
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -120,6 +136,23 @@ export default function WorkOrdersManager({ canEdit }: { canEdit: boolean }) {
       return acc;
     }, {});
   }, [workOrders]);
+
+  async function toggleExpand(wo: WorkOrder) {
+    if (expandedId === wo.id) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(wo.id);
+    if (!expandedItems[wo.id]) {
+      setExpandLoading(wo.id);
+      const res = await fetch(`/api/work-orders/${wo.id}/items`);
+      if (res.ok) {
+        const data = (await res.json()) as { items: WorkOrderItem[] };
+        setExpandedItems((prev) => ({ ...prev, [wo.id]: data.items }));
+      }
+      setExpandLoading(null);
+    }
+  }
 
   function openCreateForm() {
     setEditingId(null);
@@ -199,6 +232,13 @@ export default function WorkOrdersManager({ canEdit }: { canEdit: boolean }) {
       } else {
         setShowForm(false);
       }
+      if (editingId) {
+        setExpandedItems((prev) => {
+          const next = { ...prev };
+          delete next[editingId];
+          return next;
+        });
+      }
       await loadWorkOrders();
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Erro inesperado.");
@@ -257,7 +297,7 @@ export default function WorkOrdersManager({ canEdit }: { canEdit: boolean }) {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as WorkOrderStatus | "")}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm bg-white"
+            className="input"
           >
             <option value="">Todos os status</option>
             {STATUS_ORDER.map((value) => (
@@ -269,7 +309,7 @@ export default function WorkOrdersManager({ canEdit }: { canEdit: boolean }) {
           <select
             value={vehicleFilter}
             onChange={(e) => setVehicleFilter(e.target.value)}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm bg-white"
+            className="input"
           >
             <option value="">Todos os veiculos</option>
             {vehicles.map((v) => (
@@ -281,7 +321,7 @@ export default function WorkOrdersManager({ canEdit }: { canEdit: boolean }) {
           <select
             value={maintenanceTypeFilter}
             onChange={(e) => setMaintenanceTypeFilter(e.target.value as MaintenanceType | "")}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm bg-white"
+            className="input"
           >
             <option value="">Todos os tipos</option>
             {MAINTENANCE_TYPE_ORDER.map((value) => (
@@ -292,16 +332,13 @@ export default function WorkOrdersManager({ canEdit }: { canEdit: boolean }) {
           </select>
         </div>
         {canEdit && (
-          <button
-            onClick={openCreateForm}
-            className="rounded-md bg-slate-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-slate-700"
-          >
+          <button onClick={openCreateForm} className="btn btn-primary">
             + Nova OS
           </button>
         )}
       </div>
 
-      <div className="text-xs text-slate-500">
+      <div className="text-xs" style={{ color: "var(--text-faint)" }}>
         {workOrders.length} OS
         {Object.entries(counts).length > 0 && (
           <>
@@ -315,103 +352,122 @@ export default function WorkOrdersManager({ canEdit }: { canEdit: boolean }) {
         )}
       </div>
 
-      {error && (
-        <div className="rounded-md bg-red-50 text-red-700 text-sm px-3 py-2 border border-red-200">
-          {error}
-        </div>
-      )}
+      {error && <div className="alert alert-error">{error}</div>}
 
-      <div className="overflow-x-auto rounded-md border border-slate-200 bg-white">
-        <table className="min-w-full text-sm">
-          <thead className="bg-slate-100 text-left text-slate-600">
+      <div className="card overflow-x-auto">
+        <table className="data-table" style={{ tableLayout: "fixed", width: "100%" }}>
+          <colgroup>
+            <col style={{ width: "6rem" }} />
+            <col style={{ width: "8rem" }} />
+            <col />
+            <col style={{ width: "6rem" }} />
+            <col style={{ width: "7rem" }} />
+            <col style={{ width: "7.5rem" }} />
+            <col style={{ width: "15rem" }} />
+          </colgroup>
+          <thead>
             <tr>
-              <th className="px-3 py-2">#</th>
-              <th className="px-3 py-2">Data</th>
-              <th className="px-3 py-2">Veiculo</th>
-              <th className="px-3 py-2">Problema</th>
-              <th className="px-3 py-2">Tipo</th>
-              <th className="px-3 py-2">Oficina</th>
-              <th className="px-3 py-2">Custo</th>
-              <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2"></th>
+              <th>Data</th>
+              <th>Veiculo</th>
+              <th>Problema</th>
+              <th>Tipo</th>
+              <th>Custo</th>
+              <th>Status</th>
+              <th></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody>
             {loading && (
               <tr>
-                <td colSpan={9} className="px-3 py-6 text-center text-slate-400">
+                <td colSpan={7} className="text-center" style={{ color: "var(--text-faint)" }}>
                   Carregando...
                 </td>
               </tr>
             )}
             {!loading && workOrders.length === 0 && (
               <tr>
-                <td colSpan={9} className="px-3 py-6 text-center text-slate-400">
+                <td colSpan={7} className="text-center" style={{ color: "var(--text-faint)" }}>
                   Nenhuma OS cadastrada.
                 </td>
               </tr>
             )}
-            {workOrders.map((wo) => (
-              <tr key={wo.id} className="hover:bg-slate-50">
-                <td className="px-3 py-2 font-mono">{wo.id}</td>
-                <td className="px-3 py-2 font-mono whitespace-nowrap">
-                  {wo.opened_at ? wo.opened_at.slice(0, 10).split("-").reverse().join("/") : "-"}
-                </td>
-                <td className="px-3 py-2 font-mono">{wo.vehicle_plate ?? wo.vehicle_model}</td>
-                <td className="px-3 py-2 max-w-xs truncate" title={wo.problem_description}>
-                  {wo.problem_description}
-                </td>
-                <td className="px-3 py-2">
-                  {wo.maintenance_type ? MAINTENANCE_TYPE_LABEL[wo.maintenance_type] : "-"}
-                </td>
-                <td className="px-3 py-2">{wo.workshop ?? "-"}</td>
-                <td className="px-3 py-2">
-                  {formatCents(wo.final_cost_cents ?? wo.items_total_cents ?? 0)}
-                </td>
-                <td className="px-3 py-2">
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs">
-                    {STATUS_LABEL[wo.status]}
-                  </span>
-                </td>
-                <td className="px-3 py-2 text-right whitespace-nowrap">
-                  {canEdit && (
-                    <>
-                      <button
-                        onClick={() => openEditForm(wo)}
-                        className="text-slate-600 hover:text-slate-900 mr-3"
-                      >
-                        Editar
+            {workOrders.map((wo) => {
+              const isOpen = expandedId === wo.id;
+              const rowItems = expandedItems[wo.id];
+              const total = wo.final_cost_cents ?? wo.items_total_cents ?? 0;
+              return (
+                <Fragment key={wo.id}>
+                  <tr>
+                    <td className="mono whitespace-nowrap">{formatDate(wo.opened_at)}</td>
+                    <td>
+                      <div className="mono font-medium">{wo.vehicle_plate ?? "-"}</div>
+                      <div className="text-xs" style={{ color: "var(--text-faint)" }}>
+                        {wo.vehicle_model}
+                      </div>
+                    </td>
+                    <td className="max-w-xs truncate" title={wo.problem_description}>
+                      {wo.problem_description}
+                    </td>
+                    <td>
+                      {wo.maintenance_type ? (
+                        <Badge tone="accent">{MAINTENANCE_TYPE_LABEL[wo.maintenance_type]}</Badge>
+                      ) : (
+                        <span style={{ color: "var(--text-faint)" }}>-</span>
+                      )}
+                    </td>
+                    <td className="num font-medium">{formatCents(total)}</td>
+                    <td>
+                      <Badge tone={WORK_ORDER_STATUS_TONE[wo.status]}>{STATUS_LABEL[wo.status]}</Badge>
+                    </td>
+                    <td className="text-right whitespace-nowrap">
+                      <button onClick={() => toggleExpand(wo)} className="btn btn-secondary">
+                        {isOpen ? "Ocultar" : "Ver itens"}
                       </button>
-                      <button
-                        onClick={() => handleDelete(wo)}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        Excluir
-                      </button>
-                    </>
+                      {canEdit && (
+                        <>
+                          <button onClick={() => openEditForm(wo)} className="btn btn-ghost">
+                            Editar
+                          </button>
+                          <button onClick={() => handleDelete(wo)} className="btn btn-danger-ghost">
+                            Excluir
+                          </button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                  {isOpen && (
+                    <tr className="expand-row">
+                      <td colSpan={7}>
+                        <WorkOrderDetail
+                          wo={wo}
+                          items={rowItems}
+                          loading={expandLoading === wo.id}
+                        />
+                      </td>
+                    </tr>
                   )}
-                </td>
-              </tr>
-            ))}
+                </Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-50">
+        <div
+          className="fixed inset-0 flex items-center justify-center p-4 z-50"
+          style={{ background: "rgba(20, 24, 31, 0.45)" }}
+        >
           <form
             onSubmit={handleSubmit}
-            className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 flex flex-col gap-4"
+            className="card w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 flex flex-col gap-4"
+            style={{ boxShadow: "var(--shadow-md)" }}
           >
-            <h2 className="text-lg font-semibold">
+            <h2 className="text-base font-semibold" style={{ color: "var(--ink)" }}>
               {editingId ? `Editar OS #${editingId}` : "Nova OS"}
             </h2>
 
-            {formError && (
-              <div className="rounded-md bg-red-50 text-red-700 text-sm px-3 py-2 border border-red-200">
-                {formError}
-              </div>
-            )}
+            {formError && <div className="alert alert-error">{formError}</div>}
 
             <div className="grid grid-cols-2 gap-3">
               <Field label="Veiculo *">
@@ -572,24 +628,25 @@ export default function WorkOrdersManager({ canEdit }: { canEdit: boolean }) {
             </Field>
 
             {editingId && (
-              <div className="border-t border-slate-200 pt-3 flex flex-col gap-2">
-                <h3 className="text-sm font-semibold">Itens (pecas/servicos)</h3>
+              <div className="flex flex-col gap-2 pt-3" style={{ borderTop: "1px solid var(--line)" }}>
+                <div className="section-label">Itens (pecas/servicos)</div>
                 {items.length > 0 && (
                   <table className="text-sm w-full">
                     <tbody>
                       {items.map((item) => (
-                        <tr key={item.id} className="border-b border-slate-100">
-                          <td className="py-1">{item.description}</td>
-                          <td className="py-1 text-right">{item.quantity}x</td>
-                          <td className="py-1 text-right">{formatCents(item.unit_cost_cents)}</td>
-                          <td className="py-1 text-right font-medium">
+                        <tr key={item.id} style={{ borderBottom: "1px solid var(--line)" }}>
+                          <td className="py-1.5">{item.description}</td>
+                          <td className="py-1.5 text-right mono">{item.quantity}x</td>
+                          <td className="py-1.5 text-right mono">{formatCents(item.unit_cost_cents)}</td>
+                          <td className="py-1.5 text-right mono font-medium">
                             {formatCents(item.quantity * item.unit_cost_cents)}
                           </td>
-                          <td className="py-1 text-right">
+                          <td className="py-1.5 text-right">
                             <button
                               type="button"
                               onClick={() => handleRemoveItem(item)}
-                              className="text-red-600 hover:text-red-800 text-xs"
+                              className="btn btn-danger-ghost"
+                              style={{ padding: "0.15rem 0.4rem", fontSize: "0.72rem" }}
                             >
                               remover
                             </button>
@@ -597,10 +654,10 @@ export default function WorkOrdersManager({ canEdit }: { canEdit: boolean }) {
                         </tr>
                       ))}
                       <tr>
-                        <td colSpan={3} className="py-1 text-right font-semibold">
+                        <td colSpan={3} className="py-1.5 text-right font-semibold">
                           Total dos itens
                         </td>
-                        <td className="py-1 text-right font-semibold">
+                        <td className="py-1.5 text-right font-semibold mono">
                           {formatCents(itemsTotalCents)}
                         </td>
                         <td />
@@ -609,7 +666,7 @@ export default function WorkOrdersManager({ canEdit }: { canEdit: boolean }) {
                   </table>
                 )}
                 <div className="flex gap-2 items-end">
-                  <label className="flex flex-col gap-1 text-xs font-medium text-slate-600 flex-1">
+                  <label className="field-label flex-1">
                     Descricao
                     <input
                       className="input"
@@ -617,7 +674,7 @@ export default function WorkOrdersManager({ canEdit }: { canEdit: boolean }) {
                       onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })}
                     />
                   </label>
-                  <label className="flex flex-col gap-1 text-xs font-medium text-slate-600 w-20">
+                  <label className="field-label w-20">
                     Qtd
                     <input
                       type="number"
@@ -627,7 +684,7 @@ export default function WorkOrdersManager({ canEdit }: { canEdit: boolean }) {
                       onChange={(e) => setItemForm({ ...itemForm, quantity: e.target.value })}
                     />
                   </label>
-                  <label className="flex flex-col gap-1 text-xs font-medium text-slate-600 w-28">
+                  <label className="field-label w-28">
                     Valor unit. (R$)
                     <input
                       type="number"
@@ -642,7 +699,7 @@ export default function WorkOrdersManager({ canEdit }: { canEdit: boolean }) {
                     type="button"
                     onClick={handleAddItem}
                     disabled={!itemForm.description}
-                    className="rounded-md bg-slate-200 px-3 py-1.5 text-sm hover:bg-slate-300 disabled:opacity-50"
+                    className="btn btn-secondary"
                   >
                     + item
                   </button>
@@ -650,19 +707,15 @@ export default function WorkOrdersManager({ canEdit }: { canEdit: boolean }) {
               </div>
             )}
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex justify-end gap-2 pt-2" style={{ borderTop: "1px solid var(--line)" }}>
               <button
                 type="button"
                 onClick={() => setShowForm(false)}
-                className="rounded-md px-4 py-1.5 text-sm border border-slate-300"
+                className="btn btn-secondary mt-4"
               >
                 Fechar
               </button>
-              <button
-                type="submit"
-                disabled={saving}
-                className="rounded-md bg-slate-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
-              >
+              <button type="submit" disabled={saving} className="btn btn-primary mt-4">
                 {saving ? "Salvando..." : "Salvar"}
               </button>
             </div>
@@ -673,9 +726,134 @@ export default function WorkOrdersManager({ canEdit }: { canEdit: boolean }) {
   );
 }
 
+function WorkOrderDetail({
+  wo,
+  items,
+  loading,
+}: {
+  wo: WorkOrder;
+  items: WorkOrderItem[] | undefined;
+  loading: boolean;
+}) {
+  const total = items?.reduce((sum, i) => sum + i.quantity * i.unit_cost_cents, 0) ?? 0;
+
+  const meta: [string, string][] = (
+    [
+      ["Oficina", wo.workshop],
+      ["Metodo de pagamento", wo.payment_method],
+      ["Prazo de pagamento", wo.payment_term],
+      ["Solicitante", wo.requested_by],
+      ["Aprovador", wo.approved_by],
+      ["Nº OS", wo.os_number],
+      ["Nº Nota Fiscal", wo.invoice_number],
+      ["Obra/Projeto/Cliente", wo.project_client],
+      ["Hodometro no atendimento", wo.odometer_at_service ? `${wo.odometer_at_service.toLocaleString("pt-BR")} km` : null],
+    ] as [string, string | null][]
+  ).filter((pair): pair is [string, string] => pair[1] !== null);
+
+  return (
+    <div className="p-5 flex flex-col gap-4">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <div className="section-label mb-1">Detalhamento da manutencao</div>
+          <div className="text-sm font-medium" style={{ color: "var(--ink)" }}>
+            {wo.vehicle_plate ?? wo.vehicle_model} · {formatDate(wo.opened_at)}
+          </div>
+        </div>
+        {wo.final_cost_cents !== null && (
+          <div className="text-right">
+            <div className="section-label mb-1">Total</div>
+            <div className="text-base font-semibold mono" style={{ color: "var(--ink)" }}>
+              {formatCents(wo.final_cost_cents)}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {meta.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2.5">
+          {meta.map(([label, value]) => (
+            <div key={label}>
+              <div className="text-xs" style={{ color: "var(--text-faint)" }}>
+                {label}
+              </div>
+              <div className="text-sm" style={{ color: "var(--text)" }}>
+                {value}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div>
+        <div className="section-label mb-2">Itens</div>
+        {loading && (
+          <div className="text-sm" style={{ color: "var(--text-faint)" }}>
+            Carregando itens...
+          </div>
+        )}
+        {!loading && items && items.length === 0 && (
+          <div className="text-sm" style={{ color: "var(--text-faint)" }}>
+            Nenhum item registrado para esta OS.
+          </div>
+        )}
+        {!loading && items && items.length > 0 && (
+          <div className="card overflow-x-auto" style={{ background: "var(--surface)" }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Descricao</th>
+                  <th className="whitespace-nowrap">Qtd.</th>
+                  <th className="whitespace-nowrap">Vlr. unitario</th>
+                  <th className="whitespace-nowrap">Vlr. total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item) => (
+                  <tr key={item.id}>
+                    <td className="max-w-xs truncate" title={item.description}>
+                      {item.description}
+                    </td>
+                    <td className="num whitespace-nowrap">{item.quantity}</td>
+                    <td className="num whitespace-nowrap">{formatCents(item.unit_cost_cents)}</td>
+                    <td className="num whitespace-nowrap font-medium">
+                      {formatCents(item.quantity * item.unit_cost_cents)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              {total > 0 && (
+                <tfoot>
+                  <tr>
+                    <td colSpan={3} className="text-right font-semibold">
+                      Total dos itens
+                    </td>
+                    <td className="num font-semibold">{formatCents(total)}</td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
+        )}
+      </div>
+
+      {wo.notes && (
+        <div>
+          <div className="text-xs mb-1" style={{ color: "var(--text-faint)" }}>
+            Observacoes
+          </div>
+          <div className="text-sm" style={{ color: "var(--text)" }}>
+            {wo.notes}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
+    <label className="field-label">
       {label}
       {children}
     </label>
