@@ -41,11 +41,19 @@ export default function Sidebar({ user }: { user: SessionUser }) {
     >
       <Link
         href="/dashboard"
-        className="flex flex-col gap-2.5 px-5 py-5"
+        className="flex flex-col items-start gap-2.5 px-5 py-5"
         style={{ borderBottom: "1px solid var(--line)" }}
       >
-        <img src="/logo-zanatta.png" alt="Zanatta Estufas Agricolas" style={{ height: 24, width: "auto" }} />
-        <img src="/logo-vdh.png" alt="Van der Hoeven Estufas Agricolas" style={{ height: 24, width: "auto" }} />
+        <img
+          src="/logo-zanatta.png"
+          alt="Zanatta Estufas Agricolas"
+          style={{ height: 24, width: "auto", maxWidth: "none" }}
+        />
+        <img
+          src="/logo-vdh.png"
+          alt="Van der Hoeven Estufas Agricolas"
+          style={{ height: 24, width: "auto", maxWidth: "none" }}
+        />
       </Link>
 
       <nav className="flex-1 flex flex-col gap-1 p-3 overflow-y-auto">
