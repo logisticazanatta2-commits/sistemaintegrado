@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import type { SessionUser } from "@/lib/auth";
-import { IconDashboard, IconLogout, IconTruck, IconUsers, IconWrench } from "./icons";
+import { IconDashboard, IconGauge, IconLogout, IconTruck, IconUsers, IconWrench } from "./icons";
 
 const ROLE_LABEL: Record<SessionUser["role"], string> = {
   admin: "Administrador",
@@ -14,6 +14,7 @@ const ROLE_LABEL: Record<SessionUser["role"], string> = {
 const LINKS = [
   { href: "/dashboard", label: "Dashboard", icon: IconDashboard },
   { href: "/veiculos", label: "Veiculos", icon: IconTruck },
+  { href: "/hodometro", label: "Hodometro", icon: IconGauge },
   { href: "/manutencao", label: "Manutencao", icon: IconWrench },
 ];
 

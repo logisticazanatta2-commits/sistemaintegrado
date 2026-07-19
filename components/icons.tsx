@@ -52,6 +52,16 @@ export function IconUsers({ className }: IconProps) {
   );
 }
 
+export function IconGauge({ className }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <path d="M4 15.5a8 8 0 1 1 16 0" />
+      <path d="M12 15.5 16 9" />
+      <path d="M12 15.5h.01" />
+    </svg>
+  );
+}
+
 export function IconLogout({ className }: IconProps) {
   return (
     <svg {...base} className={className}>
