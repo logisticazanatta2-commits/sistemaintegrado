@@ -1,0 +1,158 @@
+export type WorkOrderStatus =
+  | "solicitada"
+  | "em_analise"
+  | "aguardando_orcamento"
+  | "aguardando_aprovacao"
+  | "aprovada"
+  | "em_execucao"
+  | "concluida"
+  | "faturada"
+  | "encerrada"
+  | "cancelada";
+
+export const WORK_ORDER_STATUSES: WorkOrderStatus[] = [
+  "solicitada",
+  "em_analise",
+  "aguardando_orcamento",
+  "aguardando_aprovacao",
+  "aprovada",
+  "em_execucao",
+  "concluida",
+  "faturada",
+  "encerrada",
+  "cancelada",
+];
+
+export interface WorkOrderItem {
+  id: number;
+  work_order_id: number;
+  description: string;
+  quantity: number;
+  unit_cost_cents: number;
+  created_at: string;
+}
+
+export interface WorkOrder {
+  id: number;
+  vehicle_id: number;
+  status: WorkOrderStatus;
+  problem_description: string;
+  workshop: string | null;
+  requested_by: string | null;
+  approved_by: string | null;
+  payment_method: string | null;
+  final_cost_cents: number | null;
+  opened_at: string;
+  closed_at: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  vehicle_plate?: string | null;
+  vehicle_model?: string | null;
+  items_total_cents?: number;
+}
+
+export class ValidationError extends Error {}
+
+export interface WorkOrderInput {
+  vehicle_id: number;
+  status: WorkOrderStatus;
+  problem_description: string;
+  workshop: string | null;
+  requested_by: string | null;
+  approved_by: string | null;
+  payment_method: string | null;
+  final_cost_cents: number | null;
+  opened_at: string | null;
+  closed_at: string | null;
+  notes: string | null;
+}
+
+export function parseWorkOrderInput(body: unknown): WorkOrderInput {
+  if (typeof body !== "object" || body === null) {
+    throw new ValidationError("Corpo da requisicao invalido.");
+  }
+  const b = body as Record<string, unknown>;
+
+  const vehicleId = Number(b.vehicle_id);
+  if (!Number.isInteger(vehicleId) || vehicleId <= 0) {
+    throw new ValidationError("Veiculo e obrigatorio.");
+  }
+
+  let status: WorkOrderStatus = "solicitada";
+  if (b.status !== undefined) {
+    if (typeof b.status !== "string" || !WORK_ORDER_STATUSES.includes(b.status as WorkOrderStatus)) {
+      throw new ValidationError("Status invalido.");
+    }
+    status = b.status as WorkOrderStatus;
+  }
+
+  const problemDescription = typeof b.problem_description === "string" ? b.problem_description.trim() : "";
+  if (!problemDescription) {
+    throw new ValidationError("Descricao do problema e obrigatoria.");
+  }
+
+  const str = (key: string): string | null => {
+    const v = b[key];
+    if (typeof v !== "string") return null;
+    const trimmed = v.trim();
+    return trimmed ? trimmed : null;
+  };
+
+  let finalCostCents: number | null = null;
+  if (b.final_cost_cents !== undefined && b.final_cost_cents !== null && b.final_cost_cents !== "") {
+    const n = Number(b.final_cost_cents);
+    if (!Number.isFinite(n) || n < 0) {
+      throw new ValidationError("Custo final precisa ser um numero positivo.");
+    }
+    finalCostCents = Math.round(n);
+  }
+
+  return {
+    vehicle_id: vehicleId,
+    status,
+    problem_description: problemDescription,
+    workshop: str("workshop"),
+    requested_by: str("requested_by"),
+    approved_by: str("approved_by"),
+    payment_method: str("payment_method"),
+    final_cost_cents: finalCostCents,
+    opened_at: str("opened_at"),
+    closed_at: str("closed_at"),
+    notes: str("notes"),
+  };
+}
+
+export interface WorkOrderItemInput {
+  description: string;
+  quantity: number;
+  unit_cost_cents: number;
+}
+
+export function parseWorkOrderItemInput(body: unknown): WorkOrderItemInput {
+  if (typeof body !== "object" || body === null) {
+    throw new ValidationError("Corpo da requisicao invalido.");
+  }
+  const b = body as Record<string, unknown>;
+
+  const description = typeof b.description === "string" ? b.description.trim() : "";
+  if (!description) {
+    throw new ValidationError("Descricao do item e obrigatoria.");
+  }
+
+  const quantity = Number(b.quantity ?? 1);
+  if (!Number.isFinite(quantity) || quantity <= 0) {
+    throw new ValidationError("Quantidade precisa ser maior que zero.");
+  }
+
+  const unitCostCents = Number(b.unit_cost_cents ?? 0);
+  if (!Number.isFinite(unitCostCents) || unitCostCents < 0) {
+    throw new ValidationError("Custo unitario precisa ser um numero positivo.");
+  }
+
+  return {
+    description,
+    quantity: Math.round(quantity),
+    unit_cost_cents: Math.round(unitCostCents),
+  };
+}

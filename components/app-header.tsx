@@ -18,6 +18,9 @@ export default function AppHeader({ user }: { user: SessionUser }) {
           <Link href="/veiculos" className="text-slate-600 hover:text-slate-900">
             Veiculos
           </Link>
+          <Link href="/manutencao" className="text-slate-600 hover:text-slate-900">
+            Manutencao
+          </Link>
           {user.role === "admin" && (
             <Link href="/admin/usuarios" className="text-slate-600 hover:text-slate-900">
               Usuarios
