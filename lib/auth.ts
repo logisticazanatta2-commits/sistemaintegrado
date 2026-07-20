@@ -202,6 +202,20 @@ export async function requireUser(): Promise<SessionUser> {
   return user;
 }
 
+const PUBLIC_VIEWER: SessionUser = { id: 0, email: "", name: "Visitante", role: "viewer" };
+
+export function isPublicViewer(user: SessionUser): boolean {
+  return user.id === 0;
+}
+
+// Usado nas telas de consulta (veiculos, hodometro, manutencao, multas):
+// visitantes sem login veem os dados em modo somente-leitura. Nunca usar
+// isto para telas administrativas (ex: gestao de usuarios).
+export async function requireUserOrPublic(): Promise<SessionUser> {
+  const user = await getCurrentUser();
+  return user ?? PUBLIC_VIEWER;
+}
+
 export async function requireAdmin(): Promise<SessionUser> {
   const user = await requireUser();
   if (user.role !== "admin") redirect("/veiculos");

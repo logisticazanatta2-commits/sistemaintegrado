@@ -647,6 +647,7 @@ export default function FinesManager({ canEdit }: { canEdit: boolean }) {
           setForm={setFlowForm}
           saving={flowSaving}
           error={flowError}
+          canEdit={canEdit}
           onClose={() => setFlowFine(null)}
           onSubmit={submitFlow}
         />
@@ -1358,6 +1359,7 @@ function FlowModal({
   setForm,
   saving,
   error,
+  canEdit,
   onClose,
   onSubmit,
 }: {
@@ -1366,6 +1368,7 @@ function FlowModal({
   setForm: (form: FlowFormState) => void;
   saving: boolean;
   error: string | null;
+  canEdit: boolean;
   onClose: () => void;
   onSubmit: (e: React.FormEvent) => void;
 }) {
@@ -1414,7 +1417,13 @@ function FlowModal({
 
         {error && <div className="alert alert-error mx-6 mt-4">{error}</div>}
 
-        <div className="p-6 flex flex-col gap-5">
+        {!canEdit && (
+          <div className="alert mx-6 mt-4" style={{ background: "var(--surface-2)", color: "var(--text-dim)" }}>
+            Visualizacao publica: os campos abaixo sao somente leitura.
+          </div>
+        )}
+
+        <fieldset disabled={!canEdit} className="p-6 flex flex-col gap-5 border-0 m-0">
           <FlowStep num={1} title="Departamento e responsavel" desc="Quem deve identificar o condutor e acompanhar a resposta.">
             <div className="grid grid-cols-2 gap-3">
               <Field label="Departamento / setor">
@@ -1552,15 +1561,17 @@ function FlowModal({
               />
             </Field>
           </FlowStep>
-        </div>
+        </fieldset>
 
         <div className="flex justify-end gap-2 p-4" style={{ borderTop: "1px solid var(--line)", background: "var(--surface-2)" }}>
           <button type="button" onClick={onClose} className="btn btn-secondary">
-            Cancelar
+            {canEdit ? "Cancelar" : "Fechar"}
           </button>
-          <button type="submit" disabled={saving} className="btn btn-primary">
-            {saving ? "Salvando..." : "Salvar e distribuir fluxo"}
-          </button>
+          {canEdit && (
+            <button type="submit" disabled={saving} className="btn btn-primary">
+              {saving ? "Salvando..." : "Salvar e distribuir fluxo"}
+            </button>
+          )}
         </div>
       </form>
     </div>

@@ -10,10 +10,6 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 });
-  }
   const { env } = getCloudflareContext();
   const id = Number((await params).id);
 

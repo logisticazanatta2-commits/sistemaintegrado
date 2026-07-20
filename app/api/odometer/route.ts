@@ -20,11 +20,6 @@ interface VehicleWithReadings extends Vehicle {
 }
 
 export async function GET() {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 });
-  }
-
   const { env } = getCloudflareContext();
 
   const result = await env.DB.prepare(

@@ -5,12 +5,8 @@ import { ValidationError, parseVehicleInput, type Vehicle } from "@/lib/vehicles
 
 export const dynamic = "force-dynamic";
 
+// Leitura publica (tela de consulta sem login); escrita continua exigindo admin abaixo.
 export async function GET(request: NextRequest) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 });
-  }
-
   const { env } = getCloudflareContext();
   const { searchParams } = new URL(request.url);
   const category = searchParams.get("category");

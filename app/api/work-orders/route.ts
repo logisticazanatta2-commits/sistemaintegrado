@@ -20,11 +20,6 @@ const SELECT_WITH_VEHICLE = `
 `;
 
 export async function GET(request: NextRequest) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 });
-  }
-
   const { env } = getCloudflareContext();
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");

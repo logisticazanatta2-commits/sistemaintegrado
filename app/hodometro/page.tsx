@@ -1,12 +1,12 @@
 import { AppShell } from "@/components/app-shell";
 import { PageHeader } from "@/components/page-header";
-import { requireUser } from "@/lib/auth";
+import { requireUserOrPublic } from "@/lib/auth";
 import OdometerManager from "./odometer-manager";
 
 export const dynamic = "force-dynamic";
 
 export default async function HodometroPage() {
-  const user = await requireUser();
+  const user = await requireUserOrPublic();
 
   return (
     <AppShell user={user}>

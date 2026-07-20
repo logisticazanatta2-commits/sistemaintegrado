@@ -1,12 +1,12 @@
 import { AppShell } from "@/components/app-shell";
 import { PageHeader } from "@/components/page-header";
-import { requireUser } from "@/lib/auth";
+import { requireUserOrPublic } from "@/lib/auth";
 import WorkOrdersManager from "./work-orders-manager";
 
 export const dynamic = "force-dynamic";
 
 export default async function ManutencaoPage() {
-  const user = await requireUser();
+  const user = await requireUserOrPublic();
 
   return (
     <AppShell user={user}>

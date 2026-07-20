@@ -58,11 +58,6 @@ export async function GET(
   _request: NextRequest,
   ctx: RouteContext<"/api/work-orders/[id]/items">
 ) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 });
-  }
-
   const { id } = await ctx.params;
   const workOrderId = Number(id);
   if (!Number.isInteger(workOrderId)) {

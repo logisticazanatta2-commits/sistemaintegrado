@@ -2,7 +2,7 @@ import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
 import { PageHeader } from "@/components/page-header";
 import { StatCard } from "@/components/stat-card";
-import { requireUser } from "@/lib/auth";
+import { requireUserOrPublic } from "@/lib/auth";
 import { getDashboardSummary } from "@/lib/dashboard";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +12,7 @@ function formatCents(cents: number): string {
 }
 
 export default async function DashboardPage() {
-  const user = await requireUser();
+  const user = await requireUserOrPublic();
   const summary = await getDashboardSummary();
   const firstName = user.name.split(" ")[0];
 

@@ -6,12 +6,8 @@ import { normalizePlate } from "@/lib/vehicles";
 
 export const dynamic = "force-dynamic";
 
+// Leitura publica (tela de consulta sem login); escrita continua exigindo admin abaixo.
 export async function GET() {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 });
-  }
-
   const { env } = getCloudflareContext();
   const result = await env.DB.prepare(
     `SELECT f.*, v.plate AS vehicle_plate, v.model AS vehicle_model

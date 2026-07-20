@@ -88,23 +88,45 @@ export default function Sidebar({ user }: { user: SessionUser }) {
       </nav>
 
       <div className="p-4 flex flex-col gap-3" style={{ borderTop: "1px solid var(--line)" }}>
-        <div className="leading-tight">
-          <div className="text-sm font-medium" style={{ color: "var(--text)" }}>
-            {user.name}
-          </div>
-          <div className="text-xs" style={{ color: "var(--text-faint)" }}>
-            {ROLE_LABEL[user.role]}
-          </div>
-        </div>
-        <button
-          onClick={handleLogout}
-          disabled={loggingOut}
-          className="flex items-center gap-2 text-sm font-medium"
-          style={{ color: "var(--text-dim)" }}
-        >
-          <IconLogout />
-          {loggingOut ? "Saindo..." : "Sair"}
-        </button>
+        {user.id === 0 ? (
+          <>
+            <div className="leading-tight">
+              <div className="text-sm font-medium" style={{ color: "var(--text)" }}>
+                Visualizacao publica
+              </div>
+              <div className="text-xs" style={{ color: "var(--text-faint)" }}>
+                Somente leitura, sem login
+              </div>
+            </div>
+            <Link
+              href="/login"
+              className="flex items-center gap-2 text-sm font-medium"
+              style={{ color: "var(--accent-hover)" }}
+            >
+              Entrar
+            </Link>
+          </>
+        ) : (
+          <>
+            <div className="leading-tight">
+              <div className="text-sm font-medium" style={{ color: "var(--text)" }}>
+                {user.name}
+              </div>
+              <div className="text-xs" style={{ color: "var(--text-faint)" }}>
+                {ROLE_LABEL[user.role]}
+              </div>
+            </div>
+            <button
+              onClick={handleLogout}
+              disabled={loggingOut}
+              className="flex items-center gap-2 text-sm font-medium"
+              style={{ color: "var(--text-dim)" }}
+            >
+              <IconLogout />
+              {loggingOut ? "Saindo..." : "Sair"}
+            </button>
+          </>
+        )}
       </div>
     </aside>
   );
