@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - claude/teste-campn8
+      - claude/multas-system-redesign-4hmgpg
+      - main
   workflow_dispatch: {}
 
 jobs:
