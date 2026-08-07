@@ -1,9 +1,15 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { FineValidationError, parseFineFlowInput, type Fine } from "@/lib/fines";
+import { buildHistoryEntries, canEditOfficialData, FineValidationError, parseFineFlowInput, type Fine } from "@/lib/fines";
 
 export const dynamic = "force-dynamic";
+
+const FLOW_FIELDS = [
+  "department", "flow_responsible_name", "flow_responsible_email", "flow_responsible_status",
+  "flow_department_status", "flow_rh_status", "discount_method", "discount_installments",
+  "discount_completion_date", "flow_financial_status", "cigam_launch_number", "notes",
+];
 
 export async function PATCH(
   request: NextRequest,
@@ -13,13 +19,13 @@ export async function PATCH(
   if (!user) {
     return NextResponse.json({ error: "Nao autenticado." }, { status: 401 });
   }
-  if (user.role !== "admin") {
-    return NextResponse.json({ error: "Sem permissao para atualizar o fluxo." }, { status: 403 });
+  if (!canEditOfficialData(user)) {
+    return NextResponse.json({ error: "Sem permissao para atualizar o fluxo. Use as telas de Setor/Financeiro/RH." }, { status: 403 });
   }
   const { env } = getCloudflareContext();
   const id = Number((await params).id);
 
-  const existing = await env.DB.prepare(`SELECT id FROM fines WHERE id = ?`).bind(id).first();
+  const existing = await env.DB.prepare(`SELECT * FROM fines WHERE id = ?`).bind(id).first<Fine>();
   if (!existing) {
     return NextResponse.json({ error: "Multa nao encontrada." }, { status: 404 });
   }
@@ -65,6 +71,17 @@ export async function PATCH(
       id
     )
     .first<Fine>();
+
+  if (fine) {
+    const entries = buildHistoryEntries(existing as unknown as Record<string, unknown>, input as unknown as Record<string, unknown>, FLOW_FIELDS);
+    for (const entry of entries) {
+      await env.DB.prepare(
+        `INSERT INTO fine_history (fine_id, user_name, field_label, old_value, new_value) VALUES (?, ?, ?, ?, ?)`
+      )
+        .bind(id, user.name, entry.field_label, entry.old_value, entry.new_value)
+        .run();
+    }
+  }
 
   return NextResponse.json({ fine });
 }

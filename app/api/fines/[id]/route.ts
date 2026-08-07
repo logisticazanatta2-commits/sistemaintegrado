@@ -1,10 +1,18 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { FineValidationError, parseFineInput, type Fine } from "@/lib/fines";
+import { buildHistoryEntries, canCreateFine, canEditOfficialData, FineValidationError, parseFineInput, type Fine } from "@/lib/fines";
 import { normalizePlate } from "@/lib/vehicles";
 
 export const dynamic = "force-dynamic";
+
+const OFFICIAL_FIELDS = [
+  "vehicle_id", "plate_raw", "year", "department_id", "fleet_company", "notes",
+  "fine_type", "parent_fine_id", "auto_number", "renainf_number", "renainf_original",
+  "points", "infraction_date", "infraction_location", "infraction_code",
+  "infraction_description", "issuing_body_code", "issuing_body", "amount_cents",
+  "discount_cents", "due_date", "status",
+];
 
 export async function GET(
   _request: NextRequest,
@@ -14,8 +22,11 @@ export async function GET(
   const id = Number((await params).id);
 
   const fine = await env.DB.prepare(
-    `SELECT f.*, v.plate AS vehicle_plate, v.model AS vehicle_model
-     FROM fines f LEFT JOIN vehicles v ON v.id = f.vehicle_id WHERE f.id = ?`
+    `SELECT f.*, v.plate AS vehicle_plate, v.model AS vehicle_model, d.name AS department_name
+     FROM fines f
+     LEFT JOIN vehicles v ON v.id = f.vehicle_id
+     LEFT JOIN departments d ON d.id = f.department_id
+     WHERE f.id = ?`
   )
     .bind(id)
     .first<Fine>();
@@ -34,13 +45,13 @@ export async function PATCH(
   if (!user) {
     return NextResponse.json({ error: "Nao autenticado." }, { status: 401 });
   }
-  if (user.role !== "admin") {
+  if (!canEditOfficialData(user)) {
     return NextResponse.json({ error: "Sem permissao para editar multas." }, { status: 403 });
   }
   const { env } = getCloudflareContext();
   const id = Number((await params).id);
 
-  const existing = await env.DB.prepare(`SELECT id FROM fines WHERE id = ?`).bind(id).first();
+  const existing = await env.DB.prepare(`SELECT * FROM fines WHERE id = ?`).bind(id).first<Fine>();
   if (!existing) {
     return NextResponse.json({ error: "Multa nao encontrada." }, { status: 404 });
   }
@@ -62,27 +73,31 @@ export async function PATCH(
 
   let vehicleId = input.vehicle_id;
   let plateNormalized: string | null = null;
+  let departmentId = input.department_id;
   if (vehicleId) {
-    const vehicle = await env.DB.prepare(`SELECT id, plate FROM vehicles WHERE id = ?`)
+    const vehicle = await env.DB.prepare(`SELECT id, plate, department_id FROM vehicles WHERE id = ?`)
       .bind(vehicleId)
-      .first<{ id: number; plate: string | null }>();
+      .first<{ id: number; plate: string | null; department_id: number | null }>();
     if (!vehicle) {
       return NextResponse.json({ error: "Veiculo selecionado nao existe." }, { status: 400 });
     }
     plateNormalized = vehicle.plate ? normalizePlate(vehicle.plate) : null;
+    if (!departmentId) departmentId = vehicle.department_id;
   } else if (input.plate_raw) {
     plateNormalized = normalizePlate(input.plate_raw);
     const vehicle = await env.DB.prepare(
-      `SELECT id FROM vehicles WHERE UPPER(REPLACE(REPLACE(plate, '-', ''), ' ', '')) = ?`
+      `SELECT id, department_id FROM vehicles WHERE UPPER(REPLACE(REPLACE(plate, '-', ''), ' ', '')) = ?`
     )
       .bind(plateNormalized)
-      .first<{ id: number }>();
+      .first<{ id: number; department_id: number | null }>();
     vehicleId = vehicle?.id ?? null;
+    if (!departmentId) departmentId = vehicle?.department_id ?? null;
   }
+  if (!departmentId) departmentId = existing.department_id;
 
   const fine = await env.DB.prepare(
     `UPDATE fines SET
-      vehicle_id = ?, plate_raw = ?, plate_normalized = ?, year = ?, department = ?,
+      vehicle_id = ?, plate_raw = ?, plate_normalized = ?, year = ?, department = ?, department_id = ?,
       fleet_company = ?, notes = ?, fine_type = ?, parent_fine_id = ?, auto_number = ?,
       renainf_number = ?, renainf_original = ?, points = ?, infraction_date = ?,
       infraction_location = ?, infraction_code = ?, infraction_description = ?,
@@ -101,6 +116,7 @@ export async function PATCH(
       plateNormalized,
       input.year,
       input.department,
+      departmentId,
       input.fleet_company,
       input.notes,
       input.fine_type,
@@ -137,6 +153,21 @@ export async function PATCH(
     )
     .first<Fine>();
 
+  if (fine) {
+    const entries = buildHistoryEntries(
+      existing as unknown as Record<string, unknown>,
+      { ...input, department_id: departmentId } as unknown as Record<string, unknown>,
+      OFFICIAL_FIELDS
+    );
+    for (const entry of entries) {
+      await env.DB.prepare(
+        `INSERT INTO fine_history (fine_id, user_name, field_label, old_value, new_value) VALUES (?, ?, ?, ?, ?)`
+      )
+        .bind(id, user.name, entry.field_label, entry.old_value, entry.new_value)
+        .run();
+    }
+  }
+
   return NextResponse.json({ fine });
 }
 
@@ -148,7 +179,7 @@ export async function DELETE(
   if (!user) {
     return NextResponse.json({ error: "Nao autenticado." }, { status: 401 });
   }
-  if (user.role !== "admin") {
+  if (!canCreateFine(user)) {
     return NextResponse.json({ error: "Sem permissao para excluir multas." }, { status: 403 });
   }
   const { env } = getCloudflareContext();

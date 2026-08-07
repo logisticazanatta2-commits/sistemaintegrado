@@ -1,18 +1,19 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { FineValidationError, parseFineInput, type Fine } from "@/lib/fines";
+import { FineValidationError, canCreateFine, parseFineInput, type Fine } from "@/lib/fines";
 import { normalizePlate } from "@/lib/vehicles";
 
 export const dynamic = "force-dynamic";
 
-// Leitura publica (tela de consulta sem login); escrita continua exigindo admin abaixo.
+// Leitura publica (tela de consulta sem login); escrita exige perfil de Admin de Multas.
 export async function GET() {
   const { env } = getCloudflareContext();
   const result = await env.DB.prepare(
-    `SELECT f.*, v.plate AS vehicle_plate, v.model AS vehicle_model
+    `SELECT f.*, v.plate AS vehicle_plate, v.model AS vehicle_model, d.name AS department_name
      FROM fines f
      LEFT JOIN vehicles v ON v.id = f.vehicle_id
+     LEFT JOIN departments d ON d.id = f.department_id
      ORDER BY f.infraction_date DESC, f.id DESC
      LIMIT 2000`
   ).all<Fine>();
@@ -56,8 +57,8 @@ export async function POST(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: "Nao autenticado." }, { status: 401 });
   }
-  if (user.role !== "admin") {
-    return NextResponse.json({ error: "Sem permissao para cadastrar multas." }, { status: 403 });
+  if (!canCreateFine(user)) {
+    return NextResponse.json({ error: "Sem permissao para cadastrar multas. Apenas o Admin de Multas cadastra." }, { status: 403 });
   }
 
   const { env } = getCloudflareContext();
@@ -79,22 +80,25 @@ export async function POST(request: NextRequest) {
 
   let vehicleId = input.vehicle_id;
   let plateNormalized: string | null = null;
+  let departmentId = input.department_id;
   if (vehicleId) {
-    const vehicle = await env.DB.prepare(`SELECT id, plate FROM vehicles WHERE id = ?`)
+    const vehicle = await env.DB.prepare(`SELECT id, plate, department_id FROM vehicles WHERE id = ?`)
       .bind(vehicleId)
-      .first<{ id: number; plate: string | null }>();
+      .first<{ id: number; plate: string | null; department_id: number | null }>();
     if (!vehicle) {
       return NextResponse.json({ error: "Veiculo selecionado nao existe." }, { status: 400 });
     }
     plateNormalized = vehicle.plate ? normalizePlate(vehicle.plate) : null;
+    if (!departmentId) departmentId = vehicle.department_id;
   } else if (input.plate_raw) {
     plateNormalized = normalizePlate(input.plate_raw);
     const vehicle = await env.DB.prepare(
-      `SELECT id FROM vehicles WHERE UPPER(REPLACE(REPLACE(plate, '-', ''), ' ', '')) = ?`
+      `SELECT id, department_id FROM vehicles WHERE UPPER(REPLACE(REPLACE(plate, '-', ''), ' ', '')) = ?`
     )
       .bind(plateNormalized)
-      .first<{ id: number }>();
+      .first<{ id: number; department_id: number | null }>();
     vehicleId = vehicle?.id ?? null;
+    if (!departmentId) departmentId = vehicle?.department_id ?? null;
   }
 
   const confirmDuplicate = (body as Record<string, unknown>).confirm_duplicate === true;
@@ -118,7 +122,7 @@ export async function POST(request: NextRequest) {
 
   const fine = await env.DB.prepare(
     `INSERT INTO fines (
-      vehicle_id, plate_raw, plate_normalized, year, department, fleet_company, notes,
+      vehicle_id, plate_raw, plate_normalized, year, department, department_id, fleet_company, notes,
       fine_type, parent_fine_id, auto_number, renainf_number, renainf_original, points,
       infraction_date, infraction_location, infraction_code, infraction_description,
       issuing_body_code, issuing_body, driver_name, indication_deadline, form_sent_date,
@@ -126,7 +130,7 @@ export async function POST(request: NextRequest) {
       cigam_launch_number, amount_cents, discount_cents, amount_paid_cents, due_date,
       discount_launched, discount_launch_date, discount_method, discount_completed,
       discount_completion_date, status, created_by, file_key, file_name, source
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     RETURNING *`
   )
     .bind(
@@ -135,6 +139,7 @@ export async function POST(request: NextRequest) {
       plateNormalized,
       input.year,
       input.department,
+      departmentId,
       input.fleet_company,
       input.notes,
       input.fine_type,
@@ -173,6 +178,14 @@ export async function POST(request: NextRequest) {
       source
     )
     .first<Fine>();
+
+  if (fine) {
+    await env.DB.prepare(
+      `INSERT INTO fine_history (fine_id, user_name, field_label, old_value, new_value) VALUES (?, ?, ?, ?, ?)`
+    )
+      .bind(fine.id, user.name, "Multa cadastrada", null, input.auto_number ?? input.plate_raw ?? String(fine.id))
+      .run();
+  }
 
   return NextResponse.json({ fine }, { status: 201 });
 }

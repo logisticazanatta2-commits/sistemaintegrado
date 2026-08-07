@@ -2,8 +2,15 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { StatCard } from "@/components/stat-card";
+import type { SessionUser } from "@/lib/auth";
 import {
-  DEPARTMENTS,
+  canEditFinanceiro,
+  canEditOfficialData,
+  canEditRh,
+  canEditSetor,
+  computeNextAction,
+  effectiveFinesRole,
+  FINES_ROLE_LABEL,
   FINE_STATUSES,
   FINE_STATUS_LABEL,
   FINE_STATUS_TONE,
@@ -13,8 +20,29 @@ import {
   type Fine,
   type FineStatus,
   type FlowStageStatus,
+  type Urgency,
 } from "@/lib/fines";
 import type { Vehicle } from "@/lib/vehicles";
+
+interface Department {
+  id: number;
+  name: string;
+}
+
+interface HistoryRow {
+  id: number;
+  user_name: string;
+  field_label: string;
+  old_value: string | null;
+  new_value: string | null;
+  created_at: string;
+}
+
+function urgencyColor(u: Urgency): string {
+  if (u === "crit") return "var(--crit)";
+  if (u === "warn") return "var(--warn)";
+  return "var(--text-faint)";
+}
 
 function formatCents(cents: number | null | undefined): string {
   return ((cents ?? 0) / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -32,6 +60,7 @@ const EMPTY_FORM = {
   plate_raw: "",
   year: "",
   department: "",
+  department_id: "",
   fleet_company: "",
   notes: "",
   fine_type: "primeira" as "primeira" | "segunda",
@@ -76,6 +105,7 @@ function fineToForm(f: Fine): FormState {
     plate_raw: f.plate_raw ?? "",
     year: f.year?.toString() ?? "",
     department: f.department ?? "",
+    department_id: f.department_id ? String(f.department_id) : "",
     fleet_company: f.fleet_company ?? "",
     notes: f.notes ?? "",
     fine_type: f.fine_type,
@@ -147,9 +177,73 @@ function fineToFlowForm(f: Fine): FlowFormState {
   };
 }
 
-export default function FinesManager({ canEdit }: { canEdit: boolean }) {
+const EMPTY_SETOR_FORM = {
+  driver_name: "",
+  identification_method: "",
+  form_sent_date: "",
+  form_received_by: "",
+  protocol_date: "",
+};
+type SetorFormState = typeof EMPTY_SETOR_FORM;
+function fineToSetorForm(f: Fine): SetorFormState {
+  return {
+    driver_name: f.driver_name ?? "",
+    identification_method: f.identification_method ?? "",
+    form_sent_date: f.form_sent_date ?? "",
+    form_received_by: f.form_received_by ?? "",
+    protocol_date: f.protocol_date ?? "",
+  };
+}
+
+const EMPTY_FINANCEIRO_FORM = {
+  invoice_status: "",
+  amount_paid: "",
+  due_date: "",
+  cigam_launch_number: "",
+  flow_financial_status: "nao_iniciado" as FlowStageStatus,
+};
+type FinanceiroFormState = typeof EMPTY_FINANCEIRO_FORM;
+function fineToFinanceiroForm(f: Fine): FinanceiroFormState {
+  return {
+    invoice_status: f.invoice_status ?? "",
+    amount_paid: centsToReais(f.amount_paid_cents),
+    due_date: f.due_date ?? "",
+    cigam_launch_number: f.cigam_launch_number ?? "",
+    flow_financial_status: f.flow_financial_status ?? "nao_iniciado",
+  };
+}
+
+const EMPTY_RH_FORM = {
+  discount_launched: "",
+  discount_launch_date: "",
+  discount_method: "",
+  discount_installments: "",
+  discount_completed: "",
+  discount_completion_date: "",
+  flow_rh_status: "nao_iniciado" as FlowStageStatus,
+};
+type RhFormState = typeof EMPTY_RH_FORM;
+function fineToRhForm(f: Fine): RhFormState {
+  return {
+    discount_launched: f.discount_launched ?? "",
+    discount_launch_date: f.discount_launch_date ?? "",
+    discount_method: f.discount_method ?? "",
+    discount_installments: f.discount_installments?.toString() ?? "",
+    discount_completed: f.discount_completed ?? "",
+    discount_completion_date: f.discount_completion_date ?? "",
+    flow_rh_status: f.flow_rh_status ?? "nao_iniciado",
+  };
+}
+
+export default function FinesManager({ user }: { user: SessionUser }) {
+  const finesRole = effectiveFinesRole(user);
+  const canEdit = canEditOfficialData(user); // Admin de Multas: cadastro/edicao/exclusao/status
+  const canFinanceiro = canEditFinanceiro(user);
+  const canRh = canEditRh(user);
+
   const [fines, setFines] = useState<Fine[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<"" | FineStatus>("");
@@ -176,6 +270,21 @@ export default function FinesManager({ canEdit }: { canEdit: boolean }) {
   const [flowError, setFlowError] = useState<string | null>(null);
   const [statusSavingId, setStatusSavingId] = useState<number | null>(null);
 
+  const [setorFine, setSetorFine] = useState<Fine | null>(null);
+  const [setorForm, setSetorForm] = useState<SetorFormState>(EMPTY_SETOR_FORM);
+  const [setorSaving, setSetorSaving] = useState(false);
+  const [setorError, setSetorError] = useState<string | null>(null);
+
+  const [financeiroFine, setFinanceiroFine] = useState<Fine | null>(null);
+  const [financeiroForm, setFinanceiroForm] = useState<FinanceiroFormState>(EMPTY_FINANCEIRO_FORM);
+  const [financeiroSaving, setFinanceiroSaving] = useState(false);
+  const [financeiroError, setFinanceiroError] = useState<string | null>(null);
+
+  const [rhFine, setRhFine] = useState<Fine | null>(null);
+  const [rhForm, setRhForm] = useState<RhFormState>(EMPTY_RH_FORM);
+  const [rhSaving, setRhSaving] = useState(false);
+  const [rhError, setRhError] = useState<string | null>(null);
+
   async function loadFines() {
     setLoading(true);
     setError(null);
@@ -197,6 +306,9 @@ export default function FinesManager({ canEdit }: { canEdit: boolean }) {
       fetch("/api/vehicles")
         .then((r) => r.json())
         .then((d) => setVehicles(d.vehicles ?? []));
+      fetch("/api/departments")
+        .then((r) => r.json())
+        .then((d) => setDepartments(d.departments ?? []));
     }, 0);
     return () => clearTimeout(timeout);
   }, []);
@@ -325,6 +437,96 @@ export default function FinesManager({ canEdit }: { canEdit: boolean }) {
     }
   }
 
+  function openSetor(f: Fine) {
+    setSetorFine(f);
+    setSetorForm(fineToSetorForm(f));
+    setSetorError(null);
+  }
+  async function submitSetor(e: React.FormEvent) {
+    e.preventDefault();
+    if (!setorFine) return;
+    setSetorSaving(true);
+    setSetorError(null);
+    try {
+      const res = await fetch(`/api/fines/${setorFine.id}/setor`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(setorForm),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Erro ao salvar indicacao de condutor.");
+      setSetorFine(null);
+      await loadFines();
+    } catch (err) {
+      setSetorError(err instanceof Error ? err.message : "Erro inesperado.");
+    } finally {
+      setSetorSaving(false);
+    }
+  }
+
+  function openFinanceiro(f: Fine) {
+    setFinanceiroFine(f);
+    setFinanceiroForm(fineToFinanceiroForm(f));
+    setFinanceiroError(null);
+  }
+  async function submitFinanceiro(e: React.FormEvent) {
+    e.preventDefault();
+    if (!financeiroFine) return;
+    setFinanceiroSaving(true);
+    setFinanceiroError(null);
+    try {
+      const res = await fetch(`/api/fines/${financeiroFine.id}/financeiro`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(financeiroForm),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Erro ao salvar financeiro.");
+      setFinanceiroFine(null);
+      await loadFines();
+    } catch (err) {
+      setFinanceiroError(err instanceof Error ? err.message : "Erro inesperado.");
+    } finally {
+      setFinanceiroSaving(false);
+    }
+  }
+
+  function openRh(f: Fine) {
+    setRhFine(f);
+    setRhForm(fineToRhForm(f));
+    setRhError(null);
+  }
+  async function submitRh(e: React.FormEvent) {
+    e.preventDefault();
+    if (!rhFine) return;
+    setRhSaving(true);
+    setRhError(null);
+    try {
+      const res = await fetch(`/api/fines/${rhFine.id}/rh`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(rhForm),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Erro ao salvar desconto/RH.");
+      setRhFine(null);
+      await loadFines();
+    } catch (err) {
+      setRhError(err instanceof Error ? err.message : "Erro inesperado.");
+    } finally {
+      setRhSaving(false);
+    }
+  }
+
+  /** Abre a etapa certa conforme o perfil de multas de quem esta logado. */
+  function openScoped(f: Fine) {
+    if (finesRole === "admin_multas") return openFlow(f);
+    if (finesRole === "gestor_setor" && canEditSetor(user, f)) return openSetor(f);
+    if (finesRole === "financeiro") return openFinanceiro(f);
+    if (finesRole === "rh") return openRh(f);
+    return openFlow(f); // leitura
+  }
+
   async function quickStatusChange(f: Fine, status: FineStatus) {
     setStatusSavingId(f.id);
     try {
@@ -426,6 +628,14 @@ export default function FinesManager({ canEdit }: { canEdit: boolean }) {
 
   return (
     <div className="flex flex-col gap-5">
+      <div className="text-xs" style={{ color: "var(--text-faint)" }}>
+        {user.id === 0
+          ? "Visualizacao publica - somente leitura."
+          : finesRole === "viewer"
+            ? `Visualizador - ${user.name} (somente leitura).`
+            : `Voce esta como ${FINES_ROLE_LABEL[finesRole]} - ${user.name}` +
+              (finesRole === "gestor_setor" ? ", edita apenas a indicacao de condutor do seu setor." : ".")}
+      </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard label="Total de multas" value={String(summary.total)} />
         <StatCard label="Em aberto" value={String(summary.abertas)} tone={summary.abertas > 0 ? "warn" : "ink"} />
@@ -526,6 +736,7 @@ export default function FinesManager({ canEdit }: { canEdit: boolean }) {
         )}
         {filtered.map((f) => {
           const overdue = f.status === "pagto_data_vencida";
+          const nextAction = computeNextAction(f);
           return (
             <Fragment key={f.id}>
             <div className="fines-row">
@@ -546,8 +757,8 @@ export default function FinesManager({ canEdit }: { canEdit: boolean }) {
                 >
                   {f.fleet_company ?? (f.vehicle_id ? "Frota propria" : "Terceiro / locadora")}
                 </div>
-                <div className="muted truncate" title={f.department ?? undefined}>
-                  {f.department ?? "-"}
+                <div className="muted truncate" title={f.department_name ?? f.department ?? undefined}>
+                  {f.department_name ?? f.department ?? "-"}
                 </div>
               </div>
               <div>
@@ -595,9 +806,24 @@ export default function FinesManager({ canEdit }: { canEdit: boolean }) {
                     </option>
                   ))}
                 </select>
-                <button type="button" className="flow-btn" onClick={() => openFlow(f)}>
+                {nextAction.ownerLabel !== "-" && (
+                  <div className="text-xs mb-1" style={{ lineHeight: 1.3 }}>
+                    <div style={{ color: "var(--text-dim)" }}>{nextAction.what}</div>
+                    <div>
+                      <span style={{ fontWeight: 600 }}>{nextAction.ownerLabel}</span>
+                      {nextAction.deadline && (
+                        <span style={{ color: urgencyColor(nextAction.urgency) }}>
+                          {" "}
+                          · {nextAction.urgency === "crit" ? "venceu " : "ate "}
+                          {formatDate(nextAction.deadline)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+                <button type="button" className="flow-btn" onClick={() => openScoped(f)}>
                   <span>
-                    Abrir fluxo interno
+                    {canEdit || canFinanceiro || canRh || canEditSetor(user, f) ? "Abrir etapa" : "Ver fluxo"}
                     <span className="flow-btn-who">
                       {f.flow_responsible_name || FLOW_STAGE_STATUS_LABEL[f.flow_department_status]}
                     </span>
@@ -624,7 +850,7 @@ export default function FinesManager({ canEdit }: { canEdit: boolean }) {
               </div>
             </div>
             {expandedId === f.id && (
-              <FineDetailPanel fine={f} onEdit={() => openEditForm(f)} onFlow={() => openFlow(f)} canEdit={canEdit} />
+              <FineDetailPanel fine={f} onEdit={() => openEditForm(f)} onFlow={() => openScoped(f)} canEdit={canEdit} />
             )}
             </Fragment>
           );
@@ -648,8 +874,45 @@ export default function FinesManager({ canEdit }: { canEdit: boolean }) {
           saving={flowSaving}
           error={flowError}
           canEdit={canEdit}
+          departments={departments}
           onClose={() => setFlowFine(null)}
           onSubmit={submitFlow}
+        />
+      )}
+
+      {setorFine && (
+        <SetorModal
+          fine={setorFine}
+          form={setorForm}
+          setForm={setSetorForm}
+          saving={setorSaving}
+          error={setorError}
+          onClose={() => setSetorFine(null)}
+          onSubmit={submitSetor}
+        />
+      )}
+
+      {financeiroFine && (
+        <FinanceiroModal
+          fine={financeiroFine}
+          form={financeiroForm}
+          setForm={setFinanceiroForm}
+          saving={financeiroSaving}
+          error={financeiroError}
+          onClose={() => setFinanceiroFine(null)}
+          onSubmit={submitFinanceiro}
+        />
+      )}
+
+      {rhFine && (
+        <RhModal
+          fine={rhFine}
+          form={rhForm}
+          setForm={setRhForm}
+          saving={rhSaving}
+          error={rhError}
+          onClose={() => setRhFine(null)}
+          onSubmit={submitRh}
         />
       )}
 
@@ -703,13 +966,16 @@ export default function FinesManager({ canEdit }: { canEdit: boolean }) {
                 <Field label="Setor responsavel">
                   <select
                     className="input"
-                    value={form.department}
-                    onChange={(e) => setForm({ ...form, department: e.target.value })}
+                    value={form.department_id}
+                    onChange={(e) => {
+                      const dep = departments.find((d) => String(d.id) === e.target.value);
+                      setForm({ ...form, department_id: e.target.value, department: dep?.name ?? "" });
+                    }}
                   >
                     <option value="">-</option>
-                    {DEPARTMENTS.map((d) => (
-                      <option key={d} value={d}>
-                        {d}
+                    {departments.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name}
                       </option>
                     ))}
                   </select>
@@ -1156,13 +1422,27 @@ function FineDetailPanel({
   onFlow: () => void;
   canEdit: boolean;
 }) {
+  const [history, setHistory] = useState<HistoryRow[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/fines/${fine.id}/historico`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (!cancelled) setHistory(d.history ?? []);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fine.id]);
+
   return (
     <div className="fines-detail-panel">
       <div className="fines-detail-grid">
         <FormSection label="Identificacao">
           <div className="detail-grid">
             <DetailField label="Ano" value={fine.year} />
-            <DetailField label="Setor responsavel" value={fine.department} />
+            <DetailField label="Setor responsavel" value={fine.department_name ?? fine.department} />
             <DetailField label="Frota / propriedade" value={fine.fleet_company} />
             <DetailField label="Tipo" value={fine.fine_type === "segunda" ? "2a multa" : "1a multa"} />
             <DetailField label="Cadastrada em" value={formatDate(fine.registered_at)} />
@@ -1238,11 +1518,36 @@ function FineDetailPanel({
             </a>
           </FormSection>
         )}
+
+        <FormSection label="Historico">
+          {!history && <div className="muted text-xs">Carregando...</div>}
+          {history && history.length === 0 && <div className="muted text-xs">Sem alteracoes registradas.</div>}
+          {history && history.length > 0 && (
+            <div className="flex flex-col gap-2">
+              {history.map((h) => (
+                <div key={h.id} className="text-xs" style={{ borderLeft: "2px solid var(--line)", paddingLeft: 8 }}>
+                  <div>
+                    <span style={{ fontWeight: 600 }}>{h.user_name}</span>{" "}
+                    {h.old_value === null && h.new_value !== null && h.field_label === "Multa cadastrada" ? (
+                      <>cadastrou a multa ({h.new_value}).</>
+                    ) : (
+                      <>
+                        alterou <b>{h.field_label}</b> de &ldquo;{h.old_value ?? "Nao identificado"}&rdquo; para
+                        &ldquo;{h.new_value ?? "-"}&rdquo;.
+                      </>
+                    )}
+                  </div>
+                  <div className="muted mono">{h.created_at}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </FormSection>
       </div>
 
       <div className="flex justify-end gap-2 pt-3" style={{ borderTop: "1px solid var(--line)" }}>
         <button type="button" onClick={onFlow} className="btn btn-secondary">
-          Abrir fluxo interno
+          Abrir etapa / fluxo
         </button>
         {canEdit && (
           <button type="button" onClick={onEdit} className="btn btn-primary">
@@ -1360,6 +1665,7 @@ function FlowModal({
   saving,
   error,
   canEdit,
+  departments,
   onClose,
   onSubmit,
 }: {
@@ -1369,6 +1675,7 @@ function FlowModal({
   saving: boolean;
   error: string | null;
   canEdit: boolean;
+  departments: Department[];
   onClose: () => void;
   onSubmit: (e: React.FormEvent) => void;
 }) {
@@ -1433,9 +1740,9 @@ function FlowModal({
                   onChange={(e) => setForm({ ...form, department: e.target.value })}
                 >
                   <option value="">-</option>
-                  {DEPARTMENTS.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
+                  {departments.map((d) => (
+                    <option key={d.id} value={d.name}>
+                      {d.name}
                     </option>
                   ))}
                 </select>
@@ -1600,5 +1907,316 @@ function FlowStep({
         {children}
       </div>
     </div>
+  );
+}
+
+function ScopedModalShell({
+  title,
+  subtitle,
+  fine,
+  error,
+  saving,
+  onClose,
+  onSubmit,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  fine: Fine;
+  error: string | null;
+  saving: boolean;
+  onClose: () => void;
+  onSubmit: (e: React.FormEvent) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className="fixed inset-0 flex items-center justify-center p-4 z-50"
+      style={{ background: "rgba(20, 24, 31, 0.45)" }}
+    >
+      <form
+        onSubmit={onSubmit}
+        className="card w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 flex flex-col gap-5"
+        style={{ background: "var(--surface)", boxShadow: "var(--shadow-md)" }}
+      >
+        <div>
+          <h2 className="text-base font-semibold" style={{ color: "var(--ink)" }}>
+            {title}
+          </h2>
+          <p className="text-sm" style={{ color: "var(--text-dim)" }}>
+            {fine.auto_number ?? fine.id} · {fine.vehicle_plate ?? fine.plate_raw ?? "-"} · {subtitle}
+          </p>
+        </div>
+
+        {error && <div className="alert alert-error">{error}</div>}
+
+        {children}
+
+        <div className="flex justify-end gap-2 pt-2" style={{ borderTop: "1px solid var(--line)" }}>
+          <button type="button" onClick={onClose} className="btn btn-secondary">
+            Cancelar
+          </button>
+          <button type="submit" disabled={saving} className="btn btn-primary">
+            {saving ? "Salvando..." : "Salvar"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function SetorModal({
+  fine,
+  form,
+  setForm,
+  saving,
+  error,
+  onClose,
+  onSubmit,
+}: {
+  fine: Fine;
+  form: SetorFormState;
+  setForm: (f: SetorFormState) => void;
+  saving: boolean;
+  error: string | null;
+  onClose: () => void;
+  onSubmit: (e: React.FormEvent) => void;
+}) {
+  return (
+    <ScopedModalShell
+      title="Indicacao do condutor"
+      subtitle={fine.department_name ?? fine.department ?? "setor"}
+      fine={fine}
+      error={error}
+      saving={saving}
+      onClose={onClose}
+      onSubmit={onSubmit}
+    >
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Real infrator / condutor">
+          <input
+            className="input"
+            value={form.driver_name}
+            onChange={(e) => setForm({ ...form, driver_name: e.target.value })}
+          />
+        </Field>
+        <Field label="Forma de identificacao">
+          <input
+            className="input"
+            value={form.identification_method}
+            onChange={(e) => setForm({ ...form, identification_method: e.target.value })}
+          />
+        </Field>
+        <Field label="Data envio formulario">
+          <input
+            type="date"
+            className="input"
+            value={form.form_sent_date}
+            onChange={(e) => setForm({ ...form, form_sent_date: e.target.value })}
+          />
+        </Field>
+        <Field label="Responsavel por receber formulario">
+          <input
+            className="input"
+            value={form.form_received_by}
+            onChange={(e) => setForm({ ...form, form_received_by: e.target.value })}
+          />
+        </Field>
+        <Field label="Data protocolo / postagem">
+          <input
+            type="date"
+            className="input"
+            value={form.protocol_date}
+            onChange={(e) => setForm({ ...form, protocol_date: e.target.value })}
+          />
+        </Field>
+      </div>
+    </ScopedModalShell>
+  );
+}
+
+function FinanceiroModal({
+  fine,
+  form,
+  setForm,
+  saving,
+  error,
+  onClose,
+  onSubmit,
+}: {
+  fine: Fine;
+  form: FinanceiroFormState;
+  setForm: (f: FinanceiroFormState) => void;
+  saving: boolean;
+  error: string | null;
+  onClose: () => void;
+  onSubmit: (e: React.FormEvent) => void;
+}) {
+  return (
+    <ScopedModalShell
+      title="Financeiro"
+      subtitle={`valor ${formatCents(fine.amount_cents)}`}
+      fine={fine}
+      error={error}
+      saving={saving}
+      onClose={onClose}
+      onSubmit={onSubmit}
+    >
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Valor real pago (R$)">
+          <input
+            type="number"
+            step="0.01"
+            className="input"
+            value={form.amount_paid}
+            onChange={(e) => setForm({ ...form, amount_paid: e.target.value })}
+          />
+        </Field>
+        <Field label="Data de vencimento">
+          <input
+            type="date"
+            className="input"
+            value={form.due_date}
+            onChange={(e) => setForm({ ...form, due_date: e.target.value })}
+          />
+        </Field>
+        <Field label="Boleto / situacao financeira">
+          <input
+            className="input"
+            placeholder="Ex: Boleto, Banco/Renavam, Localiza..."
+            value={form.invoice_status}
+            onChange={(e) => setForm({ ...form, invoice_status: e.target.value })}
+          />
+        </Field>
+        <Field label="Numero de lancamento no CIGAM">
+          <input
+            className="input"
+            value={form.cigam_launch_number}
+            onChange={(e) => setForm({ ...form, cigam_launch_number: e.target.value })}
+          />
+        </Field>
+        <Field label="Situacao financeira">
+          <select
+            className="input"
+            value={form.flow_financial_status}
+            onChange={(e) => setForm({ ...form, flow_financial_status: e.target.value as FlowStageStatus })}
+          >
+            {FLOW_STAGE_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {FLOW_STAGE_STATUS_LABEL[s]}
+              </option>
+            ))}
+          </select>
+        </Field>
+      </div>
+      <p className="text-xs" style={{ color: "var(--text-faint)" }}>
+        Ao informar o valor pago igual ou maior que o valor da multa, o status avanca automaticamente para
+        &ldquo;Pagto. realizado&rdquo;.
+      </p>
+    </ScopedModalShell>
+  );
+}
+
+function RhModal({
+  fine,
+  form,
+  setForm,
+  saving,
+  error,
+  onClose,
+  onSubmit,
+}: {
+  fine: Fine;
+  form: RhFormState;
+  setForm: (f: RhFormState) => void;
+  saving: boolean;
+  error: string | null;
+  onClose: () => void;
+  onSubmit: (e: React.FormEvent) => void;
+}) {
+  return (
+    <ScopedModalShell
+      title="Desconto / RH"
+      subtitle={fine.driver_name ?? "condutor nao identificado"}
+      fine={fine}
+      error={error}
+      saving={saving}
+      onClose={onClose}
+      onSubmit={onSubmit}
+    >
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Valor lancado p/ desconto?">
+          <select
+            className="input"
+            value={form.discount_launched}
+            onChange={(e) => setForm({ ...form, discount_launched: e.target.value })}
+          >
+            <option value="">-</option>
+            <option value="SIM">Sim</option>
+            <option value="NAO">Nao</option>
+            <option value="NA">N/A</option>
+          </select>
+        </Field>
+        <Field label="Data do lancamento">
+          <input
+            type="date"
+            className="input"
+            value={form.discount_launch_date}
+            onChange={(e) => setForm({ ...form, discount_launch_date: e.target.value })}
+          />
+        </Field>
+        <Field label="Forma do desconto">
+          <input
+            className="input"
+            placeholder="Ex: Comissao, Pernoite, PIX, Folha..."
+            value={form.discount_method}
+            onChange={(e) => setForm({ ...form, discount_method: e.target.value })}
+          />
+        </Field>
+        <Field label="Quantidade de parcelas">
+          <input
+            type="number"
+            min={1}
+            className="input"
+            value={form.discount_installments}
+            onChange={(e) => setForm({ ...form, discount_installments: e.target.value })}
+          />
+        </Field>
+        <Field label="Desconto efetuado?">
+          <select
+            className="input"
+            value={form.discount_completed}
+            onChange={(e) => setForm({ ...form, discount_completed: e.target.value })}
+          >
+            <option value="">-</option>
+            <option value="SIM">Sim</option>
+            <option value="NAO">Nao</option>
+            <option value="PARCELADO">Parcelado</option>
+            <option value="NA">N/A</option>
+          </select>
+        </Field>
+        <Field label="Data de efetivacao">
+          <input
+            type="date"
+            className="input"
+            value={form.discount_completion_date}
+            onChange={(e) => setForm({ ...form, discount_completion_date: e.target.value })}
+          />
+        </Field>
+        <Field label="Situacao no RH">
+          <select
+            className="input"
+            value={form.flow_rh_status}
+            onChange={(e) => setForm({ ...form, flow_rh_status: e.target.value as FlowStageStatus })}
+          >
+            {FLOW_STAGE_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {FLOW_STAGE_STATUS_LABEL[s]}
+              </option>
+            ))}
+          </select>
+        </Field>
+      </div>
+    </ScopedModalShell>
   );
 }

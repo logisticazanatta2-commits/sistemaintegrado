@@ -1,8 +1,10 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { NextRequest, NextResponse } from "next/server";
-import { countActiveAdmins, getCurrentUser, hashPassword, type UserRole } from "@/lib/auth";
+import { countActiveAdmins, getCurrentUser, hashPassword, type FinesRole, type UserRole } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
+
+const FINES_ROLES: FinesRole[] = ["admin_multas", "gestor_setor", "financeiro", "rh"];
 
 interface UserRow {
   id: number;
@@ -31,7 +33,7 @@ export async function PATCH(
   if (typeof body !== "object" || body === null) {
     return NextResponse.json({ error: "Corpo da requisicao invalido." }, { status: 400 });
   }
-  const { role, active, password } = body as Record<string, unknown>;
+  const { role, active, password, fines_role, fines_department_id } = body as Record<string, unknown>;
 
   const { env } = getCloudflareContext();
   const target = await env.DB.prepare(
@@ -88,6 +90,17 @@ export async function PATCH(
     updates.push("password_hash = ?");
     values.push(await hashPassword(password));
   }
+  if (fines_role !== undefined) {
+    if (fines_role !== null && fines_role !== "" && !FINES_ROLES.includes(fines_role as FinesRole)) {
+      return NextResponse.json({ error: "Perfil de multas invalido." }, { status: 400 });
+    }
+    updates.push("fines_role = ?");
+    values.push(fines_role === "" ? null : fines_role);
+  }
+  if (fines_department_id !== undefined) {
+    updates.push("fines_department_id = ?");
+    values.push(fines_department_id === "" || fines_department_id === null ? null : Number(fines_department_id));
+  }
 
   if (updates.length === 0) {
     return NextResponse.json({ error: "Nada para atualizar." }, { status: 400 });
@@ -98,7 +111,7 @@ export async function PATCH(
 
   const updated = await env.DB.prepare(
     `UPDATE app_users SET ${updates.join(", ")} WHERE id = ?
-     RETURNING id, email, name, role, active, created_at`
+     RETURNING id, email, name, role, active, created_at, fines_role, fines_department_id`
   )
     .bind(...values)
     .first();

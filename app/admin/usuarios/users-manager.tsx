@@ -4,6 +4,12 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/badge";
 
 type Role = "admin" | "viewer";
+type FinesRole = "admin_multas" | "gestor_setor" | "financeiro" | "rh";
+
+interface Department {
+  id: number;
+  name: string;
+}
 
 interface AppUser {
   id: number;
@@ -12,6 +18,8 @@ interface AppUser {
   role: Role;
   active: number;
   created_at: string;
+  fines_role: FinesRole | null;
+  fines_department_id: number | null;
 }
 
 const ROLE_LABEL: Record<Role, string> = {
@@ -19,10 +27,25 @@ const ROLE_LABEL: Record<Role, string> = {
   viewer: "Visualizador",
 };
 
-const EMPTY_FORM = { name: "", email: "", password: "", role: "viewer" as Role };
+const FINES_ROLE_LABEL: Record<FinesRole, string> = {
+  admin_multas: "Admin de Multas",
+  gestor_setor: "Gestor de Setor",
+  financeiro: "Financeiro",
+  rh: "RH",
+};
+
+const EMPTY_FORM = {
+  name: "",
+  email: "",
+  password: "",
+  role: "viewer" as Role,
+  fines_role: "" as "" | FinesRole,
+  fines_department_id: "",
+};
 
 export default function UsersManager({ currentUserId }: { currentUserId: number }) {
   const [users, setUsers] = useState<AppUser[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -46,7 +69,12 @@ export default function UsersManager({ currentUserId }: { currentUserId: number 
   }
 
   useEffect(() => {
-    const timeout = setTimeout(loadUsers, 0);
+    const timeout = setTimeout(() => {
+      loadUsers();
+      fetch("/api/departments")
+        .then((r) => r.json())
+        .then((d) => setDepartments(d.departments ?? []));
+    }, 0);
     return () => clearTimeout(timeout);
   }, []);
 
@@ -100,6 +128,34 @@ export default function UsersManager({ currentUserId }: { currentUserId: number 
     await loadUsers();
   }
 
+  async function changeFinesRole(u: AppUser, fines_role: "" | FinesRole) {
+    const res = await fetch(`/api/users/${u.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fines_role: fines_role || null }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error ?? "Erro ao atualizar perfil de multas.");
+      return;
+    }
+    await loadUsers();
+  }
+
+  async function changeFinesDepartment(u: AppUser, fines_department_id: string) {
+    const res = await fetch(`/api/users/${u.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fines_department_id: fines_department_id || null }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error ?? "Erro ao atualizar setor.");
+      return;
+    }
+    await loadUsers();
+  }
+
   async function handleDelete(u: AppUser) {
     if (!confirm(`Excluir o acesso de "${u.name}" (${u.email})?`)) return;
     const res = await fetch(`/api/users/${u.id}`, { method: "DELETE" });
@@ -131,6 +187,8 @@ export default function UsersManager({ currentUserId }: { currentUserId: number 
               <th>Nome</th>
               <th>E-mail</th>
               <th>Papel</th>
+              <th>Perfil em Multas</th>
+              <th>Setor (Gestor)</th>
               <th>Status</th>
               <th></th>
             </tr>
@@ -138,7 +196,7 @@ export default function UsersManager({ currentUserId }: { currentUserId: number 
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={5} className="text-center" style={{ color: "var(--text-faint)" }}>
+                <td colSpan={7} className="text-center" style={{ color: "var(--text-faint)" }}>
                   Carregando...
                 </td>
               </tr>
@@ -166,6 +224,42 @@ export default function UsersManager({ currentUserId }: { currentUserId: number 
                         </option>
                       ))}
                     </select>
+                  </td>
+                  <td>
+                    <select
+                      value={u.fines_role ?? ""}
+                      onChange={(e) => changeFinesRole(u, e.target.value as "" | FinesRole)}
+                      className="input"
+                      style={{ paddingTop: "0.35rem", paddingBottom: "0.35rem" }}
+                    >
+                      <option value="">
+                        {u.role === "admin" ? "Padrao (Admin de Multas)" : "Padrao (somente leitura)"}
+                      </option>
+                      {Object.entries(FINES_ROLE_LABEL).map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    {u.fines_role === "gestor_setor" ? (
+                      <select
+                        value={u.fines_department_id ?? ""}
+                        onChange={(e) => changeFinesDepartment(u, e.target.value)}
+                        className="input"
+                        style={{ paddingTop: "0.35rem", paddingBottom: "0.35rem" }}
+                      >
+                        <option value="">Selecione o setor...</option>
+                        {departments.map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span style={{ color: "var(--text-faint)" }}>-</span>
+                    )}
                   </td>
                   <td>
                     <Badge tone={u.active ? "ok" : "neutral"}>
@@ -243,6 +337,40 @@ export default function UsersManager({ currentUserId }: { currentUserId: number 
                 ))}
               </select>
             </label>
+            <label className="flex flex-col gap-1 field-label">
+              Perfil em Multas (opcional)
+              <select
+                className="input"
+                value={form.fines_role}
+                onChange={(e) =>
+                  setForm({ ...form, fines_role: e.target.value as "" | FinesRole, fines_department_id: "" })
+                }
+              >
+                <option value="">Padrao (segue o papel acima)</option>
+                {Object.entries(FINES_ROLE_LABEL).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {form.fines_role === "gestor_setor" && (
+              <label className="flex flex-col gap-1 field-label">
+                Setor
+                <select
+                  className="input"
+                  value={form.fines_department_id}
+                  onChange={(e) => setForm({ ...form, fines_department_id: e.target.value })}
+                >
+                  <option value="">Selecione o setor...</option>
+                  {departments.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
 
             <div className="flex justify-end gap-2 pt-2" style={{ borderTop: "1px solid var(--line)" }}>
               <button

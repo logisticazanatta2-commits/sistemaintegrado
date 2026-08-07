@@ -3,12 +3,15 @@ import { redirect } from "next/navigation";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 export type UserRole = "admin" | "viewer";
+export type FinesRole = "admin_multas" | "gestor_setor" | "financeiro" | "rh";
 
 export interface SessionUser {
   id: number;
   email: string;
   name: string;
   role: UserRole;
+  fines_role: FinesRole | null;
+  fines_department_id: number | null;
 }
 
 export const SESSION_COOKIE = "sigf_session";
@@ -89,6 +92,8 @@ interface UserRow {
   active: number;
   failed_attempts: number;
   locked_until: string | null;
+  fines_role: FinesRole | null;
+  fines_department_id: number | null;
 }
 
 export type LoginResult =
@@ -100,7 +105,8 @@ export async function attemptLogin(email: string, password: string): Promise<Log
   const normalized = normalizeEmail(email);
 
   const row = await env.DB.prepare(
-    `SELECT id, email, name, password_hash, role, active, failed_attempts, locked_until
+    `SELECT id, email, name, password_hash, role, active, failed_attempts, locked_until,
+            fines_role, fines_department_id
      FROM app_users WHERE email = ?`
   )
     .bind(normalized)
@@ -150,7 +156,14 @@ export async function attemptLogin(email: string, password: string): Promise<Log
 
   return {
     ok: true,
-    user: { id: row.id, email: row.email, name: row.name, role: row.role },
+    user: {
+      id: row.id,
+      email: row.email,
+      name: row.name,
+      role: row.role,
+      fines_role: row.fines_role,
+      fines_department_id: row.fines_department_id,
+    },
     token,
   };
 }
@@ -185,7 +198,7 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
   const tokenHash = await sha256Hex(token);
 
   const row = await env.DB.prepare(
-    `SELECT u.id, u.email, u.name, u.role
+    `SELECT u.id, u.email, u.name, u.role, u.fines_role, u.fines_department_id
      FROM app_sessions s
      JOIN app_users u ON u.id = s.user_id
      WHERE s.token_hash = ? AND s.expires_at > datetime('now') AND u.active = 1`
@@ -202,7 +215,14 @@ export async function requireUser(): Promise<SessionUser> {
   return user;
 }
 
-const PUBLIC_VIEWER: SessionUser = { id: 0, email: "", name: "Visitante", role: "viewer" };
+const PUBLIC_VIEWER: SessionUser = {
+  id: 0,
+  email: "",
+  name: "Visitante",
+  role: "viewer",
+  fines_role: null,
+  fines_department_id: null,
+};
 
 export function isPublicViewer(user: SessionUser): boolean {
   return user.id === 0;

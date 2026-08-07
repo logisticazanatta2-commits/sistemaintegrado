@@ -16,7 +16,7 @@ export default async function MultasPage() {
             title="Gestao de Multas e Infracoes"
             description="Do recebimento da notificacao ate indicacao de condutor, pagamento, desconto e recurso."
           />
-          <FinesManager canEdit={user.role === "admin"} />
+          <FinesManager user={user} />
         </div>
       </main>
     </AppShell>
