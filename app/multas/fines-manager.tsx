@@ -263,6 +263,7 @@ export default function FinesManager({ user }: { user: SessionUser }) {
   const [showImport, setShowImport] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  const [importNote, setImportNote] = useState<string | null>(null);
 
   const [flowFine, setFlowFine] = useState<Fine | null>(null);
   const [flowForm, setFlowForm] = useState<FlowFormState>(EMPTY_FLOW_FORM);
@@ -394,6 +395,7 @@ export default function FinesManager({ user }: { user: SessionUser }) {
     setForm(EMPTY_FORM);
     setFormError(null);
     setDuplicateInfo(null);
+    setImportNote(null);
     setPlateSearch("");
     setParentSearch("");
     setShowForm(true);
@@ -403,6 +405,7 @@ export default function FinesManager({ user }: { user: SessionUser }) {
     setEditingId(f.id);
     setForm(fineToForm(f));
     setFormError(null);
+    setImportNote(null);
     setDuplicateInfo(null);
     setPlateSearch("");
     setParentSearch("");
@@ -600,10 +603,12 @@ export default function FinesManager({ user }: { user: SessionUser }) {
         plate_raw: extracted.plate ?? "",
         auto_number: extracted.auto_number ?? "",
         renainf_number: extracted.renainf_number ?? "",
+        renainf_original: extracted.renainf_original ?? "",
         infraction_date: extracted.infraction_date ?? "",
         infraction_location: extracted.infraction_location ?? "",
         infraction_code: extracted.infraction_code ?? "",
         infraction_description: extracted.infraction_description ?? "",
+        issuing_body_code: extracted.issuing_body_code ?? "",
         issuing_body: extracted.issuing_body ?? "",
         points: extracted.points?.toString() ?? "",
         amount: extracted.amount_cents ? (extracted.amount_cents / 100).toFixed(2) : "",
@@ -617,6 +622,13 @@ export default function FinesManager({ user }: { user: SessionUser }) {
       setDuplicateInfo(null);
       setPlateSearch("");
       setParentSearch("");
+      setImportNote(
+        data.extraction_method === "regras"
+          ? "Dados lidos automaticamente (leitor de notificacoes SENATRAN, sem custo). Confira antes de salvar."
+          : data.extraction_method === "ia"
+            ? "Dados lidos automaticamente por IA. Confira antes de salvar."
+            : "Nao foi possivel ler os dados automaticamente deste documento. Preencha os campos abaixo."
+      );
       setShowImport(false);
       setShowForm(true);
     } catch (err) {
@@ -929,6 +941,8 @@ export default function FinesManager({ user }: { user: SessionUser }) {
             <h2 className="text-base font-semibold" style={{ color: "var(--ink)" }}>
               {editingId ? `Editar multa #${editingId}` : "Nova multa"}
             </h2>
+
+            {importNote && <div className="alert" style={{ background: "var(--surface-2)", color: "var(--text-dim)" }}>{importNote}</div>}
 
             {formError && (
               <div className="alert alert-error flex flex-col gap-2">
@@ -1636,7 +1650,7 @@ function ImportPdfModal({
 
         {importing && (
           <div className="text-sm" style={{ color: "var(--text-dim)" }}>
-            Lendo o documento com IA...
+            Lendo o documento...
           </div>
         )}
 

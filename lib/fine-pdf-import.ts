@@ -3,6 +3,8 @@ export interface ExtractedFine {
   renavam: string | null;
   auto_number: string | null;
   renainf_number: string | null;
+  renainf_original: string | null;
+  issuing_body_code: string | null;
   infraction_date: string | null;
   infraction_time: string | null;
   infraction_location: string | null;
@@ -32,6 +34,8 @@ const EXTRACTION_TOOL = {
       renavam: { type: ["string", "null"] },
       auto_number: { type: ["string", "null"], description: "Numero do auto de infracao" },
       renainf_number: { type: ["string", "null"] },
+      renainf_original: { type: ["string", "null"], description: "Numero Renainf da multa original, quando esta for uma segunda multa por nao indicacao" },
+      issuing_body_code: { type: ["string", "null"], description: "Codigo do orgao autuador" },
       infraction_date: { type: ["string", "null"], description: "Formato AAAA-MM-DD" },
       infraction_time: { type: ["string", "null"], description: "Formato HH:MM" },
       infraction_location: { type: ["string", "null"] },
@@ -120,6 +124,8 @@ export async function extractFineFromPdf(
     renavam: raw.renavam ?? null,
     auto_number: raw.auto_number ?? null,
     renainf_number: raw.renainf_number ?? null,
+    renainf_original: raw.renainf_original ?? null,
+    issuing_body_code: raw.issuing_body_code ?? null,
     infraction_date: raw.infraction_date ?? null,
     infraction_time: raw.infraction_time ?? null,
     infraction_location: raw.infraction_location ?? null,

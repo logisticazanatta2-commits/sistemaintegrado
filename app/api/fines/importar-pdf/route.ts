@@ -2,9 +2,36 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { normalizePlate } from "@/lib/vehicles";
-import { FinePdfImportError, extractFineFromPdf } from "@/lib/fine-pdf-import";
+import { FinePdfImportError, extractFineFromPdf, type ExtractedFine } from "@/lib/fine-pdf-import";
+import { extractPdfText, parseNotificacaoAutuacao } from "@/lib/fine-pdf-rules";
 
 export const dynamic = "force-dynamic";
+
+const EMPTY_EXTRACTED: ExtractedFine = {
+  plate: null,
+  renavam: null,
+  auto_number: null,
+  renainf_number: null,
+  renainf_original: null,
+  issuing_body_code: null,
+  infraction_date: null,
+  infraction_time: null,
+  infraction_location: null,
+  infraction_code: null,
+  infraction_description: null,
+  issuing_body: null,
+  points: null,
+  amount_cents: null,
+  due_date: null,
+  indication_deadline: null,
+  owner_name: null,
+  confidence: {
+    plate: "nao_identificado",
+    auto_number: "nao_identificado",
+    amount_cents: "nao_identificado",
+    infraction_date: "nao_identificado",
+  },
+};
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   let binary = "";
@@ -26,12 +53,6 @@ export async function POST(request: NextRequest) {
   }
 
   const { env } = getCloudflareContext();
-  if (!env.ANTHROPIC_API_KEY) {
-    return NextResponse.json(
-      { error: "A chave de IA (ANTHROPIC_API_KEY) ainda nao foi configurada neste ambiente." },
-      { status: 503 }
-    );
-  }
 
   const form = await request.formData().catch(() => null);
   const file = form?.get("file");
@@ -48,13 +69,34 @@ export async function POST(request: NextRequest) {
   const buffer = await file.arrayBuffer();
   const fileKey = `multas-notificacoes/${crypto.randomUUID()}.pdf`;
 
-  let extracted;
+  // 1) Leitor por regras (gratuito): cobre a "Notificacao de Autuacao" do
+  //    SENATRAN/RENAINF, mesmo layout independente do orgao autuador.
+  let extracted: ExtractedFine | null = null;
+  let extractionMethod: "regras" | "ia" | "manual" = "manual";
   try {
-    const base64 = arrayBufferToBase64(buffer);
-    extracted = await extractFineFromPdf(env.ANTHROPIC_API_KEY, base64, file.name);
-  } catch (err) {
-    const message = err instanceof FinePdfImportError ? err.message : "Erro inesperado ao processar o documento.";
-    return NextResponse.json({ error: message }, { status: 502 });
+    const text = await extractPdfText(buffer);
+    extracted = parseNotificacaoAutuacao(text);
+    if (extracted) extractionMethod = "regras";
+  } catch {
+    extracted = null;
+  }
+
+  // 2) IA (paga, opcional): so tenta se o leitor por regras nao reconheceu o
+  //    documento e a chave estiver configurada. Falha da IA nao derruba a
+  //    requisicao - cai para preenchimento manual com o arquivo ja anexado.
+  if (!extracted && env.ANTHROPIC_API_KEY) {
+    try {
+      const base64 = arrayBufferToBase64(buffer);
+      extracted = await extractFineFromPdf(env.ANTHROPIC_API_KEY, base64, file.name);
+      extractionMethod = "ia";
+    } catch (err) {
+      const message = err instanceof FinePdfImportError ? err.message : "Erro inesperado ao processar o documento com IA.";
+      console.error("Falha na extracao por IA, seguindo para preenchimento manual:", message);
+    }
+  }
+
+  if (!extracted) {
+    extracted = EMPTY_EXTRACTED;
   }
 
   await env.BUCKET.put(fileKey, buffer, { httpMetadata: { contentType: "application/pdf" } });
@@ -71,6 +113,7 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     extracted,
+    extraction_method: extractionMethod,
     vehicle,
     file_key: fileKey,
     file_name: file.name,
