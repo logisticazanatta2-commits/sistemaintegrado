@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { normalizePlate } from "@/lib/vehicles";
 import { FinePdfImportError, extractFineFromPdf, type ExtractedFine } from "@/lib/fine-pdf-import";
 import { extractPdfText, parseNotificacaoAutuacao } from "@/lib/fine-pdf-rules";
+import { lookupInfractionCatalog, type InfractionCatalogEntry } from "@/lib/infractions";
 
 export const dynamic = "force-dynamic";
 
@@ -97,6 +98,17 @@ export async function POST(request: NextRequest) {
 
   if (!extracted) {
     extracted = EMPTY_EXTRACTED;
+  }
+
+  // A notificacao de autuacao do SENATRAN nao traz o numero de pontos.
+  // Complementa com o catalogo (baseado no historico real de multas),
+  // sem sobrescrever se a extracao ja trouxe algo.
+  if (extracted.infraction_code && extracted.points === null) {
+    const catalog = await env.DB.prepare(
+      `SELECT code, description, points, base_amount_cents, source FROM infraction_catalog`
+    ).all<InfractionCatalogEntry>();
+    const match = lookupInfractionCatalog(extracted.infraction_code, catalog.results ?? []);
+    if (match) extracted = { ...extracted, points: match.points };
   }
 
   await env.BUCKET.put(fileKey, buffer, { httpMetadata: { contentType: "application/pdf" } });

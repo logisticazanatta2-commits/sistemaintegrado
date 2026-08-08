@@ -23,6 +23,7 @@ import {
   type Urgency,
 } from "@/lib/fines";
 import type { Vehicle } from "@/lib/vehicles";
+import { lookupInfractionCatalog, type InfractionCatalogEntry } from "@/lib/infractions";
 
 interface Department {
   id: number;
@@ -244,6 +245,7 @@ export default function FinesManager({ user }: { user: SessionUser }) {
   const [fines, setFines] = useState<Fine[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [infractionCatalog, setInfractionCatalog] = useState<InfractionCatalogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<"" | FineStatus>("");
@@ -310,6 +312,9 @@ export default function FinesManager({ user }: { user: SessionUser }) {
       fetch("/api/departments")
         .then((r) => r.json())
         .then((d) => setDepartments(d.departments ?? []));
+      fetch("/api/infracoes")
+        .then((r) => r.json())
+        .then((d) => setInfractionCatalog(d.infractions ?? []));
     }, 0);
     return () => clearTimeout(timeout);
   }, []);
@@ -583,6 +588,17 @@ export default function FinesManager({ user }: { user: SessionUser }) {
     } else {
       alert("Nao foi possivel excluir a multa.");
     }
+  }
+
+  function applyInfractionCatalog() {
+    if (!form.infraction_code.trim() || infractionCatalog.length === 0) return;
+    const match = lookupInfractionCatalog(form.infraction_code, infractionCatalog);
+    if (!match) return;
+    setForm((prev) => ({
+      ...prev,
+      points: prev.points ? prev.points : String(match.points),
+      amount: prev.amount ? prev.amount : match.base_amount_cents ? (match.base_amount_cents / 100).toFixed(2) : prev.amount,
+    }));
   }
 
   async function handleImportPdf(file: File) {
@@ -1182,7 +1198,16 @@ export default function FinesManager({ user }: { user: SessionUser }) {
                     className="input"
                     value={form.infraction_code}
                     onChange={(e) => setForm({ ...form, infraction_code: e.target.value })}
+                    onBlur={applyInfractionCatalog}
+                    list="infraction-codes"
                   />
+                  <datalist id="infraction-codes">
+                    {infractionCatalog.map((i) => (
+                      <option key={i.code} value={i.code}>
+                        {i.description}
+                      </option>
+                    ))}
+                  </datalist>
                 </Field>
                 <Field label="Codigo do orgao">
                   <input
